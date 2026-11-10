@@ -4,7 +4,7 @@
 - واجهة RePayControl نُشرت بنجاح على GitHub Pages عبر GitHub Actions.
 - النطاق المخصص control.repay.sa محفوظ في إعدادات Pages.
 - سجل DNS الفعلي: CNAME، الاسم control، القيمة msyd3.github.io.، TTL 3600.
-- GitHub بدأ إصدار شهادة TLS بعد نجاح الوصول إلى سجل DNS. يجب التحقق من الشهادة وتفعيل Enforce HTTPS عند إتاحته.
+- شهادة TLS من Let’s Encrypt صالحة للنطاق control.repay.sa حتى 8 فبراير 2027؛ تحقق SSL الافتراضي نجح، وEnforce HTTPS مفعّل، وHTTP يتحول إلى HTTPS مع استجابة نهائية 200.
 
 ## حدود الاستضافة الحالية
 
