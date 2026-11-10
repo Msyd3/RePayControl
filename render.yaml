@@ -1,0 +1,44 @@
+# Temporary hosting; no credentials or customer records are stored in this file.
+# Review the paid instance and disk price in Render before applying this Blueprint.
+services:
+  - type: web
+    name: repay-control-api
+    runtime: node
+    plan: starter
+    region: frankfurt
+    branch: main
+    buildCommand: node --check src/server.mjs
+    startCommand: node src/server.mjs
+    healthCheckPath: /health
+    autoDeployTrigger: checksPass
+    disk:
+      name: control-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: '24'
+      - key: HOST
+        value: 0.0.0.0
+      - key: NODE_ENV
+        value: production
+      - key: DATA_DIR
+        value: /var/data
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: SERVER_INGEST_KEY
+        generateValue: true
+      - key: ADMIN_FRONTEND_ORIGIN
+        value: https://control.repay.sa
+      - key: WALLET_ORIGINS
+        value: https://wallet.repay.sa
+      - key: BUSINESS_ORIGINS
+        value: https://repay.sa,https://www.repay.sa
+      - key: POC_ORIGINS
+        value: https://repay-poc.onrender.com
+      - key: POC_API_ORIGIN
+        value: https://repay-poc.onrender.com
+      - key: RETENTION_DAYS
+        value: '90'
