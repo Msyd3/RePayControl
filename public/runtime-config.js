@@ -1,0 +1,1 @@
+window.REPAY_CONTROL_API_ORIGIN="";

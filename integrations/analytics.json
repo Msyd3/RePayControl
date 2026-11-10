@@ -1,0 +1,12 @@
+{
+  "accountName": "RePay",
+  "accountId": "415852234",
+  "propertyId": "563699293",
+  "webStreamId": "16315492326",
+  "measurementId": "G-0HYVR4PYX4",
+  "hosts": ["repay.sa", "wallet.repay.sa"],
+  "timeZone": "Asia/Riyadh",
+  "currency": "SAR",
+  "collection": "Requires deployment of the consent-gated tag to both websites",
+  "dashboard": "https://analytics.google.com/analytics/web/#/a415852234p563699293/reports/intelligenthome"
+}

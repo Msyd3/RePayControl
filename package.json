@@ -1,0 +1,8 @@
+{
+  "name": "repay-control",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {"node": ">=24.0.0"},
+  "scripts": {"start": "node --env-file-if-exists=.env src/server.mjs", "test": "node --test tests/*.test.mjs", "check": "node --check src/server.mjs && node --check public/dashboard.js && node --check public/repay-control.js"}
+}

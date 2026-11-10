@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#111111"><title>نظرة عامة | RePayControl</title><link rel="icon" href="/assets/repay-logo.png" type="image/png"><link rel="stylesheet" href="/styles.css"><script src="/vendor/pdf-lib.min.js" defer></script><script src="/vendor/html2canvas.min.js" defer></script><script src="/export-pdf.js" defer></script><script src="/runtime-config.js" defer></script><script src="/dashboard.js" defer></script></head>
+<body>
+<section id="login-screen" class="login-screen" hidden><div class="login-card"><img class="login-logo" src="/assets/repay-logo.png" width="82" height="82" alt="RePay"><form id="login-form"><label for="password">ادخل كلمة السر</label><input id="password" type="password" inputmode="numeric" autocomplete="current-password" required aria-label="ادخل كلمة السر"><button class="primary" type="submit">دخول</button><p id="login-error" role="alert"></p></form></div></section>
+<main id="app" hidden>
+  <div class="page-title"><h1>نظرة عامة</h1><button id="export" class="primary export-button"><span aria-hidden="true">↓</span> تصدير PDF</button></div>
+  <div class="toolbar"><div class="range-controls"><select id="preset" aria-label="الفترة"><option value="today">اليوم</option><option value="7">آخر 7 أيام</option><option value="30">آخر 30 يومًا</option><option value="custom">فترة محددة</option></select><label>من <input id="from" type="date" aria-label="من تاريخ"></label><span class="range-arrow" aria-hidden="true">←</span><label>إلى <input id="to" type="date" aria-label="إلى تاريخ"></label></div><div class="toolbar-status"><span id="sync-status">جارٍ التحميل</span><button id="refresh" class="icon-button" aria-label="تحديث البيانات">↻</button></div></div>
+  <div id="load-error" class="notice" role="alert" hidden></div>
+  <section id="content" aria-live="polite"></section>
+  <div class="bottom-line"><span id="updated-at">—</span><span>التوقيت: الرياض</span><button id="logout">تسجيل الخروج</button></div>
+</main>
+<div id="toast" role="status" class="toast" hidden></div>
+</body></html>
