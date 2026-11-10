@@ -25,3 +25,13 @@ GitHub Pages يشغّل الملفات الثابتة فقط. الواجهة ا�
 ## التحقق
 
 25 فحصًا في RePayControl نجحت. فحص المحفظة ونشرها نجحا بعد استخدام مسارات الأصول النسبية. نشر الموقع التعريفي نجح.
+
+
+## Render activation - verified 11 November 2026
+
+- Free temporary Node API deployed at https://repay-control-api.onrender.com (service srv-dbpps1gae00c73c9er4g). The owner explicitly accepted loss of local SQLite data on restart or redeploy. No persistent disk or paid instance was created.
+- GitHub Pages frontend was republished with that API origin. Earlier frontend-only limitations above are superseded: login is now enabled, including Arabic-digit PIN normalization. Actual sign-in at control.repay.sa was verified.
+- Wallet and business collectors now send consented events to the API; verified in Control with one test visit per site and two wallet clicks / one business click. These are test activities, not customer or payment counts.
+- API /health returned 200, an unauthenticated report returned 401, and ingestion from an unapproved origin returned 403.
+- WhatsApp records, registered customer profiles, bank withdrawals, linked accounts, revenue, and continuous Sheets import remain unconnected. GA reporting is available in Google Analytics; automatic reading of its historical reports into Control remains unconfigured. No local customer snapshot or raw phone data was published or copied to Render.
+- Source code includes render.yaml and Dockerfile for later migration. Keep secrets in hosting settings and use durable storage before production migration.
