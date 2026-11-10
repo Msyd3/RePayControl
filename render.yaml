@@ -1,20 +1,16 @@
 # Temporary hosting; no credentials or customer records are stored in this file.
-# Review the paid instance and disk price in Render before applying this Blueprint.
+# Owner chose a free trial: local SQLite data is lost on restart or redeploy.
 services:
   - type: web
     name: repay-control-api
     runtime: node
-    plan: starter
+    plan: free
     region: frankfurt
     branch: main
     buildCommand: node --check src/server.mjs
     startCommand: node src/server.mjs
     healthCheckPath: /health
     autoDeployTrigger: checksPass
-    disk:
-      name: control-data
-      mountPath: /var/data
-      sizeGB: 1
     envVars:
       - key: NODE_VERSION
         value: '24'
@@ -23,7 +19,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: DATA_DIR
-        value: /var/data
+        value: ./data
       - key: ADMIN_PASSWORD
         sync: false
       - key: SESSION_SECRET

@@ -1,14 +1,14 @@
-# استضافة Render المؤقتة
+# Temporary Render trial
 
-ملف render.yaml يجهّز خادم Node 24 وقرصًا دائمًا بسعة 1 GB. إنشاء الموارد المدفوعة يحتاج مراجعة التكلفة والموافقة في Render. لا تُنشأ موارد فعلية بمجرد وجود الملف في المستودع.
+The owner explicitly chose the FREE ephemeral trial after being told that data is lost on restart or redeploy. render.yaml uses plan: free and has no disk or other paid resource.
 
-1. اربط مستودع Msyd3/RePayControl بإنشاء Blueprint من Render.
-2. أدخل ADMIN_PASSWORD من خلال إعدادات Render الخاصة فقط. باقي مفاتيح الجلسات وجمع البيانات يولّدها Render ولا تُحفظ في GitHub.
-3. تحقّق من /health واستمرار ملف /var/data/control.sqlite بعد إعادة التشغيل.
-4. أعد نشر واجهة GitHub Pages مع api_origin الذي أعطاه Render؛ لا تغيّر DNS أو شهادة control.repay.sa.
-5. بعد نجاح الدخول اربط أحداث المحفظة والموقع بعنوان API الفعلي. بيانات واتساب تحتاج اعتماد وصول خدمة واتساب؛ Google Analytics يعمل مستقلًا بالفعل.
-6. لا تُرفع قاعدة SQLite المحلية أو لقطة العملاء إلى مستودع عام. انقل البيانات إلى الخادم عبر قناة مصادقة معتمدة عند الحاجة.
+1. Create a Blueprint for Msyd3/RePayControl.
+2. The owner enters ADMIN_PASSWORD in Render only. Render generates SESSION_SECRET and SERVER_INGEST_KEY.
+3. Verify /health and admin login. data/control.sqlite is ephemeral in this trial.
+4. Re-run the GitHub Pages workflow with the actual API origin from Render. Keep ADMIN_FRONTEND_ORIGIN=https://control.repay.sa. DNS and HTTPS for the frontend remain unchanged.
+5. Point the consent-based website collectors at the actual API origin. WhatsApp and financial data need their separate authorized upstream connections.
+6. Never commit customer snapshots, databases, passwords, or ingestion keys to GitHub.
 
-## النقل لاحقًا
+## Migration
 
-الكود مستقل عن Render، ويوجد Dockerfile جاهز. افصل إعدادات البيئة والأسرار عن الصورة، وانقل قاعدة البيانات بنسخة متسقة بعد إيقاف الكتابة مؤقتًا. قرص SQLite الحالي يحتاج تخزينًا دائمًا؛ عند اختيار Google Cloud Run يجب نقل قاعدة البيانات إلى خدمة مناسبة بدل الاعتماد على قرص الحاوية المؤقت. لا تغيّر روابط المواقع قبل التأكد من استيراد البيانات والعمل بنفس كلمة الدخول والمصادر.
+The app is independent of Render and includes a Dockerfile. Preserve environment variables and secrets outside images. Export a consistent database before moving, with writes paused during final cutover. SQLite needs durable storage; Google Cloud Run's temporary container filesystem is not a durable database. Choose durable storage or migrate to a managed database before moving there.
