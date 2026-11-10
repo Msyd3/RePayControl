@@ -4,12 +4,12 @@ import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 const source=readFileSync(new URL('../public/repay-control.js',import.meta.url),'utf8');
-function browser(dnt=false,gaId=''){
+function browser(dnt=false,gaId='',endpoint='https://control.example'){
   const requests=[],listeners={},saved=new Map(),documentListeners={},scripts=[];
   const context={URL,URLSearchParams,Headers,Request,Set,WeakSet,Date,Array,JSON,Math,Promise,crypto:{randomUUID},navigator:{userAgent:'Test Chrome',doNotTrack:dnt?'1':'0'},location:{origin:'https://wallet.example',hostname:'wallet.example',pathname:'/home',search:'?phone=966500000000&token=private&email=private@example.com'},
     history:{pushState(){},replaceState(){}},performance:{now:()=>10,getEntriesByType:()=>[]},innerHeight:800,scrollY:0,
     setInterval:()=>1,clearInterval(){},localStorage:{getItem:k=>saved.get(k)||null,setItem:(k,v)=>saved.set(k,v),removeItem:k=>saved.delete(k)},
-    document:{head:{appendChild:x=>scripts.push(x)},createElement:()=>({}),currentScript:{dataset:{project:'wallet',endpoint:'https://control.example',gaId}},referrer:'',hidden:false,documentElement:{scrollHeight:1000},addEventListener:(k,f)=>documentListeners[k]=f,querySelectorAll:()=>[]},
+    document:{head:{appendChild:x=>scripts.push(x)},createElement:()=>({}),currentScript:{dataset:{project:'wallet',endpoint,gaId}},referrer:'',hidden:false,documentElement:{scrollHeight:1000},addEventListener:(k,f)=>documentListeners[k]=f,querySelectorAll:()=>[]},
     addEventListener:(k,f)=>listeners[k]=f,
     fetch:async(url,options)=>{requests.push({url,options});return {status:202};},
     PerformanceObserver:class{observe(){}disconnect(){}}
@@ -38,4 +38,8 @@ test('SDK adds correlation only to approved same-origin API calls and never send
 
 test('GA4 starts only after consent, sends a sanitized location and stops after revocation',()=>{
  const b=browser(false,'G-TEST12345');assert.equal(b.scripts.length,0);b.context.RePayControl.grantConsent();assert.equal(b.scripts.length,1);const calls=b.context.dataLayer.map(x=>Array.from(x));const config=calls.find(x=>x[0]==='config')[2];assert.equal(config.page_location,'https://wallet.example/home');assert.equal(config.page_referrer,'');assert.equal(config.send_page_view,true);assert.ok(!JSON.stringify(calls).includes('966500000000'));b.context.RePayControl.revokeConsent();assert.equal(b.context['ga-disable-G-TEST12345'],true);
+});
+
+test('GA-only deployment works without sending events to a nonexistent Control API',()=>{
+ const b=browser(false,'G-TEST12345','');assert.equal(b.context.RePayControl.grantConsent(),true);assert.equal(b.scripts.length,1);b.context.RePayControl.flush();assert.equal(b.requests.length,0);
 });

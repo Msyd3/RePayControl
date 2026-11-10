@@ -4,7 +4,7 @@ on:
     inputs:
       api_origin:
         description: Verified HTTPS origin of the separately deployed RePayControl API
-        required: true
+        required: false
         type: string
 permissions:
   contents: read
@@ -21,7 +21,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - run: node scripts/build-pages.mjs
+      - run: node scripts/build-pages.mjs --frontend-only
         env:
           CONTROL_API_ORIGIN: ${{ inputs.api_origin }}
       - uses: actions/upload-pages-artifact@v3
