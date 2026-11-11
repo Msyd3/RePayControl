@@ -6,6 +6,7 @@ window.exportControlPDF=async function(report,renderers){
   const date=`${report.range.from} — ${report.range.to} · الرياض`;
   const chunks=(rows,size)=>rows.length?Array.from({length:Math.ceil(rows.length/size)},(_,i)=>rows.slice(i*size,(i+1)*size)):[[]];
   const pages=[];
+  for(const saved of report.recoveredReports||[])for(const metrics of chunks(saved.metrics,20))pages.push(`<h2 class="section-title">النتائج المحفوظة قبل النقل</h2><p class="section-note">الفترة ${esc(saved.from)} إلى ${esc(saved.to)}</p><div class="metrics">${metrics.map(renderers.metricCard).join('')}</div>`);
   if(report.pocSnapshot?.state==='connected'){
     const snapshot=report.pocSnapshot;
     for(const rows of chunks(snapshot.users,7))pages.push(`<h2 class="section-title">مستخدمو واتساب · منذ بداية السجلات</h2><p class="section-note">المصدر: واتساب · المستخدمون ${esc(snapshot.metrics.users)} · المحادثات ${esc(snapshot.metrics.conversations)} · طلبات التحويل ${esc(snapshot.metrics.transferRequests)}</p>${renderers.pocUsersTable(rows)}`);

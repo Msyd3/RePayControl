@@ -93,6 +93,18 @@ export function createApp({env=process.env,store,fetcher=fetch,journal=null}={})
       }
       if(url.pathname.startsWith('/api/')){
         if(!authenticated(req))return json(res,401,{error:'Unauthorized'});
+        if(url.pathname==='/api/recovered-report'&&req.method==='POST'){
+          if(!sameOrigin())return json(res,403,{error:'Forbidden'});
+          if(!journal)throw storageUnavailable();
+          const input=await body(req);
+          if(!input||typeof input.capturedAt!=='string'||!Number.isFinite(Date.parse(input.capturedAt))||!input.metrics||typeof input.metrics!=='object')return json(res,400,{error:'Invalid report'});
+          const report=store.report(input.from,input.to);
+          const metrics=report.metrics.filter(metric=>Object.hasOwn(input.metrics,metric.key)&&typeof input.metrics[metric.key]==='number'&&Number.isFinite(input.metrics[metric.key])&&input.metrics[metric.key]>=0).map(metric=>({...metric,value:input.metrics[metric.key]}));
+          if(!metrics.length)return json(res,400,{error:'Report has no metrics'});
+          const recovered={capturedAt:new Date(input.capturedAt).toISOString(),from:report.range.from,to:report.range.to,metrics};
+          await persist('reports',[recovered]);store.insertRecoveredReports([recovered]);
+          return json(res,202,{accepted:1});
+        }
         if(req.method!=='GET')return json(res,405,{error:'Method not allowed'});
         if(url.pathname==='/api/me')return json(res,200,{authenticated:true});
         if(url.pathname==='/api/control-report'){const report=store.report(url.searchParams.get('from'),url.searchParams.get('to'));report.pocSnapshot=await pocSnapshot(env,fetcher);return json(res,200,report);}

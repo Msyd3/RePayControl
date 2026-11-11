@@ -71,17 +71,19 @@ export function taroutJournal(env, fetcher = fetch) {
         const entries=await Promise.all(keys.slice(i,i+8).map(async name=>open(Buffer.from(await (await request(objectUrl(name),'GET')).arrayBuffer()))));
         batches.push(...entries);
       }
-      const events=[],profiles=[];
+      const events=[],profiles=[],reports=[];
       for(const entry of batches){
         if(entry.version!==1||!Array.isArray(entry.rows))throw storageUnavailable();
         if(entry.kind==='events')events.push(...entry.rows);
         else if(entry.kind==='profiles')profiles.push(...entry.rows);
+        else if(entry.kind==='reports')reports.push(...entry.rows);
         else throw storageUnavailable();
       }
       events.sort((a,b)=>a.ts-b.ts);
       profiles.sort((a,b)=>a.updatedAt-b.updatedAt);
       store.insertEvents(events);
       store.insertProfiles(profiles);
+      store.insertRecoveredReports(reports);
       return {events:events.length,profiles:profiles.length};
     },
   };

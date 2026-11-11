@@ -50,6 +50,7 @@ export class Store {
       CREATE INDEX IF NOT EXISTS events_session ON events(project,session,ts);`);
     initializeReport(this.db);
     initializeLeads(this.db);
+    this.db.exec('CREATE TABLE IF NOT EXISTS recovered_reports (capturedAt TEXT PRIMARY KEY, payload TEXT NOT NULL)');
     this.insert=this.db.prepare(`INSERT OR IGNORE INTO events(${['id','project','name','visitor','session','user','path','target','referrer','device','browser','campaign','source','medium','metric','value','duration','status','amountMinor','trusted','ts','entity','reasonCode','component'].join(',')}) VALUES(${Array(24).fill('?').join(',')})`);
     this.purge();
   }
@@ -68,7 +69,15 @@ export class Store {
   }
   profiles(rows){return saveProfiles(this.db,this.secret,rows);}
   insertProfiles(rows){return insertProfiles(this.db,rows);}
-  report(from,to){return appendLeadSnapshot(controlReport(this,from,to),this);}
+  insertRecoveredReports(rows){
+    const insert=this.db.prepare('INSERT OR IGNORE INTO recovered_reports(capturedAt,payload) VALUES(?,?)');
+    for(const row of rows)insert.run(row.capturedAt,JSON.stringify(row));
+  }
+  report(from,to){
+    const report=appendLeadSnapshot(controlReport(this,from,to),this);
+    report.recoveredReports=this.db.prepare('SELECT payload FROM recovered_reports ORDER BY capturedAt DESC LIMIT 20').all().map(row=>JSON.parse(row.payload));
+    return report;
+  }
   query(project='all',days=30) {
     const filter=projects.includes(project)?project:'all';
     const since=Date.now()-Math.max(1,Math.min(90,Number(days)||30))*86400000;
