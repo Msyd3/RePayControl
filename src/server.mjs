@@ -5,6 +5,7 @@ import path from 'node:path';
 import { createHmac, timingSafeEqual, randomBytes } from 'node:crypto';
 import { Store, projects } from './store.mjs';
 import { connections } from './connectors.mjs';
+import { pocSnapshot } from './poc-snapshot.mjs';
 import { normalizeDigits, configuredPassword } from './auth.mjs';
 
 const publicDir=fileURLToPath(new URL('../public/',import.meta.url));
@@ -75,7 +76,7 @@ export function createApp({env=process.env,store,fetcher=fetch}={}){
         if(!authenticated(req))return json(res,401,{error:'Unauthorized'});
         if(req.method!=='GET')return json(res,405,{error:'Method not allowed'});
         if(url.pathname==='/api/me')return json(res,200,{authenticated:true});
-        if(url.pathname==='/api/control-report')return json(res,200,store.report(url.searchParams.get('from'),url.searchParams.get('to')));
+        if(url.pathname==='/api/control-report'){const report=store.report(url.searchParams.get('from'),url.searchParams.get('to'));report.pocSnapshot=await pocSnapshot(env,fetcher);return json(res,200,report);}
         const project=url.searchParams.get('project')||'all',days=Math.max(1,Math.min(90,Number(url.searchParams.get('days'))||30));
         if(url.pathname==='/api/overview')return json(res,200,store.query(project,days));
         if(url.pathname==='/api/connections')return json(res,200,{...await connections(env,fetcher),origins,collector:{state:'ready',retentionDays:retention},checkedAt:new Date().toISOString()});

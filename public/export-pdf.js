@@ -6,6 +6,10 @@ window.exportControlPDF=async function(report,renderers){
   const date=`${report.range.from} — ${report.range.to} · الرياض`;
   const chunks=(rows,size)=>rows.length?Array.from({length:Math.ceil(rows.length/size)},(_,i)=>rows.slice(i*size,(i+1)*size)):[[]];
   const pages=[];
+  if(report.pocSnapshot?.state==='connected'){
+    const snapshot=report.pocSnapshot;
+    for(const rows of chunks(snapshot.users,7))pages.push(`<h2 class="section-title">مستخدمو واتساب · منذ بداية السجلات</h2><p class="section-note">المصدر: واتساب · المستخدمون ${esc(snapshot.metrics.users)} · المحادثات ${esc(snapshot.metrics.conversations)} · طلبات التحويل ${esc(snapshot.metrics.transferRequests)}</p>${renderers.pocUsersTable(rows)}`);
+  }
   for(const [i,metrics]of chunks(report.metrics,20).entries())pages.push(`<h2 class="section-title">${i?'المقاييس · تابع':'المقاييس'}</h2><div class="metrics">${metrics.map(renderers.metricCard).join('')}</div><p class="section-note">الإيرادات = عدد السحوبات البنكية الناجحة × 1.15 ريال. — تعني أن المصدر لم يرسل بيانات المقياس.</p>`);
   for(const users of chunks(report.users,6))pages.push(`<h2 class="section-title">المستخدمون</h2>${renderers.usersTable(users,false)}<p class="section-note">كل المستخدمين داخل التقرير، دون تطبيق بحث قائمة المستخدمين. الأرقام تخص الفترة المختارة. أرقام الجوال مخفية.</p>`);
   const repeatHeaders=['المستخدم','المصدر','تكرار المحادثات','تكرار التحويلات','الزيارات / تكرارها','أسباب الفشل'];
