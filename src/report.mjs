@@ -21,19 +21,22 @@ export function initializeReport(db){
   for(const [name,type]of [['entity','TEXT'],['reasonCode','TEXT'],['component','TEXT']])if(!columns.includes(name))db.exec(`ALTER TABLE events ADD COLUMN ${name} ${type}`);
   db.exec(`CREATE TABLE IF NOT EXISTS user_profiles(project TEXT NOT NULL,user TEXT NOT NULL,displayName TEXT NOT NULL,mobileMasked TEXT NOT NULL,registeredAt INTEGER,linkedBankAccounts INTEGER,updatedAt INTEGER NOT NULL,PRIMARY KEY(project,user));`);
 }
-export function saveProfiles(db,secret,rows){
+export function prepareProfiles(secret,rows){
   if(!secret)throw new Error('Missing identity key');
   if(!Array.isArray(rows)||rows.length<1||rows.length>100)throw new Error('Expected 1-100 profiles');
-  const profiles=rows.map(p=>{
+  return rows.map(p=>{
     if(!Object.hasOwn(sourceNames,p.project)||typeof p.userId!=='string'||!p.userId.trim()||p.userId.length>256)throw new Error('Invalid profile identity');
     const date=p.registeredAt?Date.parse(p.registeredAt):NaN;if(p.registeredAt&&(!Number.isFinite(date)||date>Date.now()))throw new Error('Invalid registration date');
     if(p.linkedBankAccounts!=null&&(!Number.isInteger(p.linkedBankAccounts)||p.linkedBankAccounts<0||p.linkedBankAccounts>1000))throw new Error('Invalid bank account count');
     return {project:p.project,user:identity(secret,p.project,p.userId),displayName:String(p.name||'').replace(/[\u0000-\u001f\u202a-\u202e\u2066-\u2069]/g,'').slice(0,120)||'الاسم غير متاح',mobileMasked:maskMobile(p.mobileMasked||p.mobile),registeredAt:Number.isFinite(date)?date:null,linkedBankAccounts:p.linkedBankAccounts??null,updatedAt:Date.now()};
   });
-  const q=db.prepare(`INSERT INTO user_profiles(project,user,displayName,mobileMasked,registeredAt,linkedBankAccounts,updatedAt) VALUES(?,?,?,?,?,?,?) ON CONFLICT(project,user) DO UPDATE SET displayName=excluded.displayName,mobileMasked=excluded.mobileMasked,registeredAt=COALESCE(excluded.registeredAt,user_profiles.registeredAt),linkedBankAccounts=COALESCE(excluded.linkedBankAccounts,user_profiles.linkedBankAccounts),updatedAt=excluded.updatedAt`);
+}
+export function insertProfiles(db,profiles){
+  const q=db.prepare(`INSERT INTO user_profiles(project,user,displayName,mobileMasked,registeredAt,linkedBankAccounts,updatedAt) VALUES(?,?,?,?,?,?,?) ON CONFLICT(project,user) DO UPDATE SET displayName=excluded.displayName,mobileMasked=excluded.mobileMasked,registeredAt=COALESCE(excluded.registeredAt,user_profiles.registeredAt),linkedBankAccounts=COALESCE(excluded.linkedBankAccounts,user_profiles.linkedBankAccounts),updatedAt=excluded.updatedAt WHERE excluded.updatedAt>=user_profiles.updatedAt`);
   db.exec('BEGIN');try{for(const p of profiles)q.run(...Object.values(p));db.exec('COMMIT');}catch(e){db.exec('ROLLBACK');throw e;}
   return profiles.length;
 }
+export function saveProfiles(db,secret,rows){return insertProfiles(db,prepareProfiles(secret,rows));}
 const transferNames=new Set(['transfer_requested','transfer_succeeded','transfer_failed','transfer_cancelled']);
 const withdrawalNames=new Set(['withdrawal_requested','withdrawal_succeeded','withdrawal_failed']);
 function entities(rows,names){const m=new Map();for(const e of rows)if(e.trusted&&names.has(e.name)){const key=e.project+':'+(e.entity||e.id);const prev=m.get(key);m.set(key,{...e,user:e.user||prev?.user||''});}return [...m.values()];}

@@ -3,7 +3,9 @@ import { readFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { createHmac, timingSafeEqual, randomBytes } from 'node:crypto';
-import { Store, projects } from './store.mjs';
+import { Store, projects, validateEvent } from './store.mjs';
+import { prepareProfiles } from './report.mjs';
+import { taroutJournal, storageUnavailable } from './tarout-journal.mjs';
 import { connections } from './connectors.mjs';
 import { pocSnapshot } from './poc-snapshot.mjs';
 import { normalizeDigits, configuredPassword } from './auth.mjs';
@@ -11,8 +13,8 @@ import { normalizeDigits, configuredPassword } from './auth.mjs';
 const publicDir=fileURLToPath(new URL('../public/',import.meta.url));
 function equal(a,b){const hash=x=>createHmac('sha256','repay-control-constant-compare').update(String(x||'')).digest();return timingSafeEqual(hash(a),hash(b));}
 function csv(rows){return '\ufeff'+rows.map(row=>row.map(v=>{let s=String(v??'');if(/^[=+@\-\t\r]/.test(s))s="'"+s;return '"'+s.replaceAll('"','""')+'"';}).join(',')).join('\r\n');}
-export function createApp({env=process.env,store,fetcher=fetch}={}){
-  const retention=Math.max(1,Math.min(365,Number(env.RETENTION_DAYS)||90));
+export function createApp({env=process.env,store,fetcher=fetch,journal=null}={}){
+  const retention=journal||env.RETENTION_DAYS==='0'?0:Math.max(1,Math.min(365,Number(env.RETENTION_DAYS)||90));
   if(!store){mkdirSync(env.DATA_DIR||'data',{recursive:true});store=new Store(path.join(env.DATA_DIR||'data','control.sqlite'),env.SESSION_SECRET||'',retention);}
   const origins={wallet:(env.WALLET_ORIGINS||'https://wallet.repay.sa').split(','),business:(env.BUSINESS_ORIGINS||'https://repay.sa,https://www.repay.sa').split(','),poc:(env.POC_ORIGINS||'https://repay-poc.onrender.com').split(',')};
   for(const p of projects)origins[p]=origins[p].map(x=>x.trim()).filter(Boolean);
@@ -23,6 +25,25 @@ export function createApp({env=process.env,store,fetcher=fetch}={}){
   function authenticated(req){if(!env.SESSION_SECRET||env.SESSION_SECRET.length<32)return false;const bearer=(req.headers.authorization||'').startsWith('Bearer ')?req.headers.authorization.slice(7):'';const token=bearer||decodeURIComponent((req.headers.cookie||'').match(/(?:^|; )rc_session=([^;]*)/)?.[1]||'');const parts=token.split('.');return parts.length===3&&Number(parts[0])>Date.now()&&equal(parts[2],signed(parts[0]+'.'+parts[1]));}
   const json=(res,status,value,headers={})=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store',...headers});res.end(JSON.stringify(value));};
   async function body(req){let text='';for await(const chunk of req){text+=chunk;if(Buffer.byteLength(text)>65536){throw Object.assign(new Error('Too large'),{status:413});}}try{return JSON.parse(text);}catch{throw Object.assign(new Error('Invalid JSON'),{status:400});}}
+  async function persist(kind, rows) {
+    if (!journal) return;
+    try { await journal.append(kind,rows); }
+    catch { throw storageUnavailable(); }
+  }
+  async function addEvents(events,trusted) {
+    let rows;
+    try { rows=events.map(event=>validateEvent(event,trusted,store.secret)); }
+    catch { throw Object.assign(new Error('Invalid event payload'),{status:400}); }
+    await persist('events',rows);
+    return store.insertEvents(rows);
+  }
+  async function addProfiles(profiles) {
+    let rows;
+    try { rows=prepareProfiles(store.secret,profiles); }
+    catch { throw Object.assign(new Error('Invalid profile payload'),{status:400}); }
+    await persist('profiles',rows);
+    return store.insertProfiles(rows);
+  }
   const handler=async(req,res)=>{
     res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('X-Frame-Options','DENY');res.setHeader('Referrer-Policy','no-referrer');
     res.setHeader('Content-Security-Policy',"default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
@@ -44,8 +65,7 @@ export function createApp({env=process.env,store,fetcher=fetch}={}){
         const data=await body(req);
         if(!Array.isArray(data.events)||data.events.length<1||data.events.length>40)return json(res,400,{error:'Expected 1–40 events'});
         if(data.events.some(e=>!e||!origins[e.project]?.includes(origin)))return json(res,403,{error:'Project origin mismatch'});
-        try{store.add(data.events,false);}catch{return json(res,400,{error:'Invalid event payload'});}
-        return json(res,202,{accepted:data.events.length});
+        return json(res,202,{accepted:await addEvents(data.events,false)});
       }
       if(url.pathname==='/api/server-events'||url.pathname==='/api/profiles'){
         if(req.method!=='POST')return json(res,405,{error:'Method not allowed'});
@@ -53,11 +73,10 @@ export function createApp({env=process.env,store,fetcher=fetch}={}){
         if(!limit('server:'+remote,600))return json(res,429,{error:'Rate limit'});
         const data=await body(req);
         if(url.pathname==='/api/profiles'){
-          try{return json(res,202,{accepted:store.profiles(data.profiles)});}catch{return json(res,400,{error:'Invalid profile payload'});}
+          return json(res,202,{accepted:await addProfiles(data.profiles)});
         }
         if(!Array.isArray(data.events)||!data.events.length||data.events.length>40)return json(res,400,{error:'Expected 1–40 events'});
-        try{store.add(data.events,true);}catch{return json(res,400,{error:'Invalid event payload'});}
-        return json(res,202,{accepted:data.events.length});
+        return json(res,202,{accepted:await addEvents(data.events,true)});
       }
       if(url.pathname==='/api/login'){
         if(req.method!=='POST'||!sameOrigin())return json(res,403,{error:'Forbidden'});
@@ -101,5 +120,8 @@ export function createApp({env=process.env,store,fetcher=fetch}={}){
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
   if(process.env.NODE_ENV==='production'&&(!configuredPassword(process.env)||!process.env.SESSION_SECRET||process.env.SESSION_SECRET.length<32||!process.env.SERVER_INGEST_KEY||process.env.SERVER_INGEST_KEY.length<32))throw new Error('Configure ADMIN_PASSWORD (4+ characters), SESSION_SECRET and SERVER_INGEST_KEY (32+ characters each)');
-  const {server}=createApp();server.listen(Number(process.env.PORT)||4317,process.env.HOST||'127.0.0.1',()=>console.log(`RePayControl: http://${process.env.HOST||'127.0.0.1'}:${process.env.PORT||4317}`));
+  const journal=taroutJournal(process.env);
+  const {server,store}=createApp({journal});
+  if(journal)await journal.restore(store);
+  server.listen(Number(process.env.PORT)||4317,process.env.HOST||'127.0.0.1',()=>console.log(`RePayControl: http://${process.env.HOST||'127.0.0.1'}:${process.env.PORT||4317}`));
 }

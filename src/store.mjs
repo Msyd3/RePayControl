@@ -1,6 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 import { createHmac } from 'node:crypto';
-import { initializeReport, controlReport, saveProfiles, reasons } from './report.mjs';
+import { initializeReport, controlReport, saveProfiles, insertProfiles, reasons } from './report.mjs';
 import { initializeLeads, appendLeadSnapshot } from './leads.mjs';
 
 export const projects = ['wallet', 'business', 'poc'];
@@ -54,14 +54,20 @@ export class Store {
     this.purge();
   }
   add(events,trusted=false) {
-    const rows=events.map(e=>validateEvent(e,trusted,this.secret));
+    return this.insertEvents(events.map(e=>validateEvent(e,trusted,this.secret)));
+  }
+  insertEvents(rows) {
     this.db.exec('BEGIN');
     try { for (const r of rows) this.insert.run(...Object.values(r)); this.db.exec('COMMIT'); }
     catch(e) {this.db.exec('ROLLBACK');throw e;}
     return rows.length;
   }
-  purge() { this.db.prepare('DELETE FROM events WHERE ts < ?').run(Date.now()-this.retention*86400000); }
+  purge() {
+    if(this.retention===0)return;
+    this.db.prepare('DELETE FROM events WHERE ts < ?').run(Date.now()-this.retention*86400000);
+  }
   profiles(rows){return saveProfiles(this.db,this.secret,rows);}
+  insertProfiles(rows){return insertProfiles(this.db,rows);}
   report(from,to){return appendLeadSnapshot(controlReport(this,from,to),this);}
   query(project='all',days=30) {
     const filter=projects.includes(project)?project:'all';
