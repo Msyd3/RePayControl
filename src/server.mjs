@@ -107,7 +107,7 @@ export function createApp({env=process.env,store,fetcher=fetch,journal=null}={})
         }
         if(req.method!=='GET')return json(res,405,{error:'Method not allowed'});
         if(url.pathname==='/api/me')return json(res,200,{authenticated:true});
-        if(url.pathname==='/api/control-report'){const report=store.report(url.searchParams.get('from'),url.searchParams.get('to'));report.pocSnapshot=await pocSnapshot(env,fetcher);return json(res,200,report);}
+        if(url.pathname==='/api/control-report'){const report=url.searchParams.get('view')==='dashboard'?store.dashboard():store.report(url.searchParams.get('from'),url.searchParams.get('to'));report.pocSnapshot=await pocSnapshot(env,fetcher);return json(res,200,report);}
         const project=url.searchParams.get('project')||'all',days=Math.max(1,Math.min(90,Number(url.searchParams.get('days'))||30));
         if(url.pathname==='/api/overview')return json(res,200,store.query(project,days));
         if(url.pathname==='/api/connections')return json(res,200,{...await connections(env,fetcher),origins,collector:{state:'ready',retentionDays:retention},checkedAt:new Date().toISOString()});

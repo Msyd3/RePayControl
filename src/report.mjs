@@ -41,15 +41,17 @@ const transferNames=new Set(['transfer_requested','transfer_succeeded','transfer
 const withdrawalNames=new Set(['withdrawal_requested','withdrawal_succeeded','withdrawal_failed']);
 function entities(rows,names){const m=new Map();for(const e of rows)if(e.trusted&&names.has(e.name)){const key=e.project+':'+(e.entity||e.id);const prev=m.get(key);m.set(key,{...e,user:e.user||prev?.user||''});}return [...m.values()];}
 const repeat=(items,key)=>{const counts=new Map();for(const x of items){const k=key(x);if(k)counts.set(k,(counts.get(k)||0)+1);}return [...counts.values()].reduce((sum,n)=>sum+Math.max(n-1,0),0);};
-export function controlReport(store,from,to){
+export function controlReport(store,from,to,project){
   const range=rangeDates(from,to),db=store.db;
-  const rows=db.prepare('SELECT rowid,* FROM events WHERE ts>=? AND ts<? ORDER BY ts,rowid').all(range.start,range.end);
-  const profiles=db.prepare('SELECT * FROM user_profiles ORDER BY displayName,project').all();
+  const scope=project?' AND project=?':'';
+  const params=project?[project]:[];
+  const rows=db.prepare('SELECT rowid,* FROM events WHERE ts>=? AND ts<?'+scope+' ORDER BY ts,rowid').all(range.start,range.end,...params);
+  const profiles=db.prepare('SELECT * FROM user_profiles WHERE 1=1'+scope+' ORDER BY displayName,project').all(...params);
   const operations=entities(rows,transferNames),withdrawals=entities(rows,withdrawalNames);
   const metrics=[];
   const add=(key,label,value,sources,unit='',note='')=>metrics.push({key,label,value,sources,unit,note});
   const has=(p)=>!!db.prepare('SELECT 1 FROM events WHERE project=? LIMIT 1').get(p)||profiles.some(x=>x.project===p);
-  const hasEvent=(names,project)=>db.prepare(`SELECT 1 FROM events WHERE trusted=1 AND name IN (${names.map(()=>'?').join(',')})${project?' AND project=?':''} LIMIT 1`).get(...names,...(project?[project]:[]));
+  const hasEvent=(names,source=project)=>db.prepare(`SELECT 1 FROM events WHERE trusted=1 AND name IN (${names.map(()=>'?').join(',')})${source?' AND project=?':''} LIMIT 1`).get(...names,...(source?[source]:[]));
   const count=(name,p)=>rows.filter(e=>e.name===name&&(!p||e.project===p)).length;
   const profileSources=[...new Set(profiles.map(x=>x.project))];
   const knownUsers=new Map(profiles.map(p=>[p.project+':'+p.user,p]));

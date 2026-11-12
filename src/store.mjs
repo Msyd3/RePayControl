@@ -1,6 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import { createHmac } from 'node:crypto';
 import { initializeReport, controlReport, saveProfiles, insertProfiles, reasons } from './report.mjs';
+import { websiteEngagement } from './website-engagement.mjs';
 import { initializeLeads, appendLeadSnapshot } from './leads.mjs';
 
 export const projects = ['wallet', 'business', 'poc'];
@@ -76,6 +77,14 @@ export class Store {
   report(from,to){
     const report=appendLeadSnapshot(controlReport(this,from,to),this);
     report.recoveredReports=this.db.prepare('SELECT payload FROM recovered_reports ORDER BY capturedAt DESC LIMIT 20').all().map(row=>JSON.parse(row.payload));
+    return report;
+  }
+  dashboard() {
+    const report=this.report();
+    const wallet=controlReport(this,report.range.from,report.range.to,'wallet');
+    report.wallet={metrics:wallet.metrics,users:wallet.users,engagement:websiteEngagement(this.db,report.recoveredReports,'wallet')};
+    report.website=websiteEngagement(this.db,report.recoveredReports,'business');
+    delete report.recoveredReports;
     return report;
   }
   query(project='all',days=30) {
