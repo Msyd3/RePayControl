@@ -31,7 +31,7 @@ const eventLabels={transfer_failed:'فشل عملية تحويل',withdrawal_fai
 
 function metricCard(metric){
   const value=metric.unit==='SAR'&&metric.value!=null?metric.value/100:metric.value;
-  return `<article class="metric"><div class="metric-label">${esc(metric.label)}</div><div class="metric-value">${value!=null&&metric.unit==='SAR'?'<small>ر.س</small>':''}${numeric(value)}</div></article>`;
+  return `<article class="metric"><div class="metric-label">${esc(metric.label)}</div><div class="metric-value">${value!=null&&metric.unit==='SAR'?'<small>ر.س</small>':''}${numeric(value)}</div>${metric.detail?`<p class="section-note">${esc(metric.detail)}</p>`:''}</article>`;
 }
 function table(headers,rows){
   return `<div class="panel"><div class="table-scroll"><table><thead><tr>${headers.map(label=>`<th scope="col">${esc(label)}</th>`).join('')}</tr></thead><tbody>${rows.map(cells=>`<tr>${cells.map((cell,i)=>`<td><span class="mobile-column-label" aria-hidden="true">${esc(headers[i])}</span><span>${cell}</span></td>`).join('')}</tr>`).join('')}</tbody></table></div></div>`;
@@ -57,6 +57,9 @@ function sections(report){
   const pocLabels={users:'عدد المستخدمين',conversations:'عدد المحادثات',transferRequests:'طلبات التحويل المسجّلة'};
   const pocMetrics=snapshot?.state==='connected'?Object.entries(pocLabels).map(([key,label])=>({label,value:snapshot.metrics[key]})):[];
   const website=report.website;
+  const google=report.googleVisitors;
+  const googleVisitors=google?[{label:'إجمالي زوار الموقع والمحفظة',value:google.total,
+    detail:`Google Analytics · ${google.from} — ${google.to}`}]:[];
   const issues=project=>({title:'الأخطاء وأسباب الفشل اليوم',rows:report.issues.filter(issue=>issue.project===project),markup:issuesTable});
   const websiteNotes=[];
   if(website?.hasHistoricalVisitors)websiteNotes.push('عدد الزوار تقديري عند جمع السجلات المحفوظة والجديدة، وقد يُحسب الزائر العائد أكثر من مرة.');
@@ -65,7 +68,7 @@ function sections(report){
     {title:sourceNames.poc,scope:'منذ بدء تسجيل المحادثات',metrics:pocMetrics,
       empty:snapshot?.message||'بيانات واتساب غير متاحة حاليًا.',
       tables:[{title:'المستخدمون',rows:sortedUsers(snapshot?.users||[]),markup:pocUsersTable},issues('poc')]},
-    {title:sourceNames.business,scope:'منذ بدء القياس',metrics:website?.metrics||[],
+    {title:sourceNames.business,scope:'منذ بدء القياس',metrics:[...(website?.metrics||[]),...googleVisitors],
       empty:'بيانات الزيارات غير متاحة حاليًا.',notes:websiteNotes,
       tables:[{title:'نقرات الأزرار',rows:website?.clicks||[],markup:clicksTable,empty:'لا تتوفر تفاصيل نقرات مسجّلة.'},issues('business')]}
   ];
