@@ -11,7 +11,29 @@
 
 .login-logo{display:block;width:82px;height:82px;object-fit:contain;margin:0 auto 34px}.login-card{padding:40px 36px}.login-card label{text-align:center;font-size:13px;margin-bottom:18px}.login-card input{text-align:center;font-size:20px;letter-spacing:4px;direction:ltr}.login-card .primary{font-size:13px}.login-card #login-error{text-align:center;letter-spacing:0}
 
-.product-section{padding:14px 0 28px;border-top:1px solid var(--border)}
+.product-section{padding:0 0 24px}
+.product-section + .product-section{border-top:1px solid var(--border);padding-top:24px}
 .product-section h3{margin:24px 0 10px;font-size:16px}
 .product-section .section-title{margin-top:8px}
 .product-section .metric{min-height:112px}
+
+.mobile-column-label{display:none}
+@media screen and (max-width:600px){
+  .page-title{gap:12px}
+  .export-button{flex-shrink:0;min-height:44px}
+  .icon-button{width:44px;height:44px}
+  .toolbar{margin-bottom:16px}
+  .product-section .metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .product-section .metric{min-height:104px;padding:13px}
+  .product-section .metric-label,.product-section .section-note{font-size:12px}
+  .product-section .metric-value{font-size:26px;margin-bottom:0}
+  .product-section .table-scroll{overflow:visible}
+  .product-section table,.product-section tbody,.product-section tr{display:block}
+  .product-section table{white-space:normal;font-size:13px}
+  .product-section thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+  .product-section tbody tr{padding:10px 14px}
+  .product-section tbody tr+tr{border-top:1px solid var(--border)}
+  .product-section td{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,3fr);gap:12px;padding:5px 0;border:0;overflow-wrap:anywhere}
+  .product-section .mobile-column-label{display:block;color:#686868}
+  .product-section .place{max-width:100%;overflow-wrap:anywhere}
+}

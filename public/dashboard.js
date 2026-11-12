@@ -2,7 +2,7 @@
 const $=s=>document.querySelector(s);
 const apiOrigin=window.REPAY_CONTROL_API_ORIGIN||'';
 let adminToken='';try{adminToken=sessionStorage.getItem('rc-admin-session')||'';}catch{}
-const sourceNames={poc:'واتساب',business:'الموقع التعريفي',wallet:'المحفظة'};
+const sourceNames={poc:'واتساب',business:'الموقع التعريفي'};
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const number=v=>v==null?'—':new Intl.NumberFormat('en-US',{maximumFractionDigits:2}).format(v);
 const state={report:null,authenticated:false,loading:false,exporting:false};
@@ -34,14 +34,11 @@ function metricCard(metric){
   return `<article class="metric"><div class="metric-label">${esc(metric.label)}</div><div class="metric-value">${value!=null&&metric.unit==='SAR'?'<small>ر.س</small>':''}${numeric(value)}</div></article>`;
 }
 function table(headers,rows){
-  return `<div class="panel"><div class="table-scroll"><table><thead><tr>${headers.map(label=>`<th scope="col">${esc(label)}</th>`).join('')}</tr></thead><tbody>${rows.map(cells=>`<tr>${cells.map(cell=>`<td>${cell}</td>`).join('')}</tr>`).join('')}</tbody></table></div></div>`;
+  return `<div class="panel"><div class="table-scroll"><table><thead><tr>${headers.map(label=>`<th scope="col">${esc(label)}</th>`).join('')}</tr></thead><tbody>${rows.map(cells=>`<tr>${cells.map((cell,i)=>`<td><span class="mobile-column-label" aria-hidden="true">${esc(headers[i])}</span><span>${cell}</span></td>`).join('')}</tr>`).join('')}</tbody></table></div></div>`;
 }
 const person=u=>[esc(u.name),`<bdi>${esc(u.mobile)}</bdi>`,esc(date(u.registeredAt))];
 function pocUsersTable(users){
   return table(['المستخدم','الجوال','تاريخ التسجيل','طلبات التحويل','المحادثات'],users.map(u=>[...person(u),numeric(u.operations),numeric(u.conversations)]));
-}
-function walletUsersTable(users){
-  return table(['المستخدم','الجوال','تاريخ التسجيل','التحويلات','ناجحة','فاشلة','السحب الناجح','الحسابات البنكية'],users.map(u=>[...person(u),...[u.operations,u.successful,u.failed,u.withdrawals,u.linkedBankAccounts].map(numeric)]));
 }
 function issuesTable(issues){
   return table(['الخلل','السبب','مكان الخلل','عدد المرات','آخر ظهور'],issues.map(i=>[
@@ -55,14 +52,11 @@ function clicksTable(clicks){
     `<code class="place">${esc(click.path)}</code>`,numeric(click.count)
   ]));
 }
-const walletKeys=['users','newUsers','activeUsers','operations','successes','failures','revenue','withdrawals','withdrawalFailures','bankAccounts'];
 function sections(report){
   const snapshot=report.pocSnapshot;
   const pocLabels={users:'عدد المستخدمين',conversations:'عدد المحادثات',transferRequests:'طلبات التحويل المسجّلة'};
   const pocMetrics=snapshot?.state==='connected'?Object.entries(pocLabels).map(([key,label])=>({label,value:snapshot.metrics[key]})):[];
-  const walletMetrics=walletKeys.map(key=>report.wallet?.metrics.find(m=>m.key===key)).filter(m=>m?.value!=null);
   const website=report.website;
-  const walletEngagement=report.wallet?.engagement;
   const issues=project=>({title:'الأخطاء وأسباب الفشل اليوم',rows:report.issues.filter(issue=>issue.project===project),markup:issuesTable});
   const websiteNotes=[];
   if(website?.hasHistoricalVisitors)websiteNotes.push('عدد الزوار تقديري عند جمع السجلات المحفوظة والجديدة، وقد يُحسب الزائر العائد أكثر من مرة.');
@@ -71,11 +65,7 @@ function sections(report){
     {title:sourceNames.poc,scope:'منذ بدء تسجيل المحادثات',metrics:pocMetrics,
       empty:snapshot?.message||'بيانات واتساب غير متاحة حاليًا.',
       tables:[{title:'المستخدمون',rows:sortedUsers(snapshot?.users||[]),markup:pocUsersTable},issues('poc')]},
-    {title:sourceNames.wallet,scope:'نشاط اليوم بتوقيت الرياض',metrics:walletMetrics,
-      empty:'لا توجد مقاييس متاحة للمحفظة حاليًا.',
-      engagement:walletEngagement?.metrics,notes:walletEngagement?.hasHistoricalVisitors?['عدد الزوار التراكمي تقديري، وقد يُحسب الزائر العائد أكثر من مرة.']:[],
-      tables:[{title:'المستخدمون',rows:sortedUsers(report.wallet?.users||[]),markup:walletUsersTable},issues('wallet')]},
-    {title:sourceNames.business,scope:'الزيارات والتفاعل منذ بدء القياس',metrics:website?.metrics||[],
+    {title:sourceNames.business,scope:'منذ بدء القياس',metrics:website?.metrics||[],
       empty:'بيانات الزيارات غير متاحة حاليًا.',notes:websiteNotes,
       tables:[{title:'نقرات الأزرار',rows:website?.clicks||[],markup:clicksTable,empty:'لا تتوفر تفاصيل نقرات مسجّلة.'},issues('business')]}
   ];
@@ -83,7 +73,7 @@ function sections(report){
 function sectionIntro(section){
   return `<h2 class="section-title">${section.title}</h2><p class="section-note">${section.scope}</p>${
     section.metrics.length?`<div class="metrics">${section.metrics.map(metricCard).join('')}</div>`:`<p class="notice">${esc(section.empty)}</p>`
-  }${section.engagement?.length?`<h3>الزيارات والتفاعل منذ بدء القياس</h3><div class="metrics">${section.engagement.map(metricCard).join('')}</div>`:''}${(section.notes||[]).map(note=>`<p class="section-note">${esc(note)}</p>`).join('')}`;
+  }${(section.notes||[]).map(note=>`<p class="section-note">${esc(note)}</p>`).join('')}`;
 }
 function sectionTable(table,rows){
   return `<h3>${table.title}</h3>${rows.length?table.markup(rows):`<p class="section-note">${table.empty}</p>`}`;
@@ -123,9 +113,7 @@ async function load(){
 
 function pdfPages(report){
   return sections(report).flatMap(section=>[
-    sectionIntro({...section,engagement:null,metrics:section.metrics.slice(0,9)}),
-    ...(section.metrics.length>9?[`<h2>${section.title}</h2><div class="metrics">${section.metrics.slice(9).map(metricCard).join('')}</div>`]:[]),
-    ...(section.engagement?.length?[`<h2>${section.title}</h2><h3>الزيارات والتفاعل منذ بدء القياس</h3><div class="metrics">${section.engagement.map(metricCard).join('')}</div>`]:[]),
+    sectionIntro(section),
     ...section.tables.flatMap(t=>{
       if(!t.rows.length)return t.empty?[`<h2>${section.title}</h2>${sectionTable(t,[])}`]:[];
       const pages=[];
