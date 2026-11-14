@@ -22,7 +22,7 @@ function table(headers,rows){
 }
 const person=u=>[esc(u.name),`<bdi>${esc(u.mobile)}</bdi>`,esc(date(u.registeredAt))];
 function pocUsersTable(users){
-  return table(['المستخدم','الجوال','تاريخ أول رسالة','طلبات التحويل','المحادثات'],users.map(u=>[...person(u),numeric(u.operations),numeric(u.conversations)]));
+  return table(['المستخدم','الجوال','تاريخ التسجيل','طلبات التحويل','المحادثات'],users.map(u=>[...person(u),numeric(u.operations),numeric(u.conversations)]));
 }
 function issuesTable(issues){
   return table(['الخلل','السبب','مكان الخلل','عدد المرات','آخر ظهور'],issues.map(i=>[

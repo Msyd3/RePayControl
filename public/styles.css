@@ -37,3 +37,5 @@
   .product-section .mobile-column-label{display:block;color:#686868}
   .product-section .place{max-width:100%;overflow-wrap:anywhere}
 }
+
+.product-section .metrics + .panel{margin-top:20px}
