@@ -46,7 +46,7 @@ function sections(report){
     {title:'المستخدمون',scope:'منذ بدء تسجيل المحادثات',metrics:pocMetrics,
       empty:snapshot?.message||'بيانات واتساب غير متاحة حاليًا.',
       tables:[{rows:sortedUsers(snapshot?.users||[]),markup:pocUsersTable},issues('poc')]},
-    {title:'بيانات القياس',scope:google?.from?`Google Analytics · منذ ${google.from}`:'Google Analytics',
+    {title:'بيانات القياس',layout:'measurement',scope:google?.from?`Google Analytics · منذ ${google.from}`:'Google Analytics',
       metrics:googleMetrics,empty:google?.state==='error'?'تعذر تحديث بيانات Google Analytics.':'بانتظار ربط مصدر بيانات Google Analytics.',
       notes:google?.stale?['تعذر التحديث. الأرقام المعروضة من آخر قراءة ناجحة.']:[],
       tables:[issues('business')]}
@@ -54,7 +54,7 @@ function sections(report){
 }
 function sectionIntro(section){
   return `<h2 class="section-title">${section.title}</h2><p class="section-note">${section.scope}</p>${
-    section.metrics.length?`<div class="metrics">${section.metrics.map(metricCard).join('')}</div>`:`<p class="notice">${esc(section.empty)}</p>`
+    section.metrics.length?`<div class="metrics${section.layout==='measurement'?' measurement-metrics':''}">${section.metrics.map(metricCard).join('')}</div>`:`<p class="notice">${esc(section.empty)}</p>`
   }${(section.notes||[]).map(note=>`<p class="section-note">${esc(note)}</p>`).join('')}`;
 }
 function sectionTable(table,rows){
