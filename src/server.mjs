@@ -7,6 +7,7 @@ import { Store, projects, validateEvent } from './store.mjs';
 import { prepareProfiles } from './report.mjs';
 import { taroutJournal, storageUnavailable } from './tarout-journal.mjs';
 import { connections } from './connectors.mjs';
+import { googleAnalytics } from './google-analytics.mjs';
 import { pocSnapshot } from './poc-snapshot.mjs';
 import { normalizeDigits, configuredPassword } from './auth.mjs';
 
@@ -14,6 +15,7 @@ const publicDir=fileURLToPath(new URL('../public/',import.meta.url));
 function equal(a,b){const hash=x=>createHmac('sha256','repay-control-constant-compare').update(String(x||'')).digest();return timingSafeEqual(hash(a),hash(b));}
 function csv(rows){return '\ufeff'+rows.map(row=>row.map(v=>{let s=String(v??'');if(/^[=+@\-\t\r]/.test(s))s="'"+s;return '"'+s.replaceAll('"','""')+'"';}).join(',')).join('\r\n');}
 export function createApp({env=process.env,store,fetcher=fetch,journal=null}={}){
+  const readGoogle=googleAnalytics(env,fetcher);
   const retention=journal||env.RETENTION_DAYS==='0'?0:Math.max(1,Math.min(365,Number(env.RETENTION_DAYS)||90));
   if(!store){mkdirSync(env.DATA_DIR||'data',{recursive:true});store=new Store(path.join(env.DATA_DIR||'data','control.sqlite'),env.SESSION_SECRET||'',retention);}
   const origins={wallet:(env.WALLET_ORIGINS||'https://wallet.repay.sa').split(','),business:(env.BUSINESS_ORIGINS||'https://repay.sa,https://www.repay.sa').split(','),poc:(env.POC_ORIGINS||'https://repay-poc.onrender.com').split(',')};
@@ -110,14 +112,9 @@ export function createApp({env=process.env,store,fetcher=fetch,journal=null}={})
         if(url.pathname==='/api/control-report'){
           const dashboard=url.searchParams.get('view')==='dashboard';
           const report=dashboard?store.dashboard():store.report(url.searchParams.get('from'),url.searchParams.get('to'));
-          report.pocSnapshot=await pocSnapshot(env,fetcher);
-          if(dashboard&&env.GOOGLE_VISITOR_SNAPSHOT){
-            const [from,to,total]=env.GOOGLE_VISITOR_SNAPSHOT.split(',');
-            const validDate=value=>/^\d{4}-\d{2}-\d{2}$/.test(value);
-            if(validDate(from)&&validDate(to)&&from<=to&&/^\d+$/.test(total)&&Number.isSafeInteger(Number(total))){
-              report.googleVisitors={from,to,total:Number(total)};
-            }
-          }
+          const [poc,google]=await Promise.all([pocSnapshot(env,fetcher),dashboard?readGoogle():null]);
+          report.pocSnapshot=poc;
+          if(dashboard)report.googleAnalytics=google;
           return json(res,200,report);
         }
         const project=url.searchParams.get('project')||'all',days=Math.max(1,Math.min(90,Number(url.searchParams.get('days'))||30));
