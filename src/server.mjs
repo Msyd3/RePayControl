@@ -7,6 +7,7 @@ import { Store, projects, validateEvent } from './store.mjs';
 import { prepareProfiles } from './report.mjs';
 import { taroutJournal, storageUnavailable } from './tarout-journal.mjs';
 import { connections } from './connectors.mjs';
+import { walletAvatars } from './wallet-avatars.mjs';
 import { googleAnalytics } from './google-analytics.mjs';
 import { pocSnapshot, validAvatar } from './poc-snapshot.mjs';
 import { normalizeDigits, configuredPassword } from './auth.mjs';
@@ -58,6 +59,17 @@ export function createApp({env=process.env,store,fetcher=fetch,journal=null}={})
     const sameOrigin=()=>{if(!origin)return false;if(env.ADMIN_FRONTEND_ORIGIN&&origin===env.ADMIN_FRONTEND_ORIGIN)return true;try{return new URL(origin).host===req.headers.host;}catch{return false;}};
     try{
       if(url.pathname==='/health')return json(res,200,{status:'ok'});
+      if(url.pathname==='/api/wallet/avatars'){
+        if(!origins.wallet.includes(origin))return json(res,403,{error:'Origin not allowed'});
+        res.setHeader('Access-Control-Allow-Origin',origin);
+        res.setHeader('Vary','Origin');
+        if(req.method!=='GET')return json(res,405,{error:'Method not allowed'});
+        if(!limit('wallet-avatars:'+remote,30))return json(res,429,{error:'Rate limit'});
+        const id=url.searchParams.get('id');
+        if(!/^[a-f0-9]{32}$/.test(id||''))return json(res,400,{error:'Invalid transfer review'});
+        try{return json(res,200,await walletAvatars(id,env,fetcher,store));}
+        catch{return json(res,200,{});}
+      }
       if(url.pathname==='/api/events'){
         if(!allowed.has(origin))return json(res,403,{error:'Origin not allowed'});
         res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin');
