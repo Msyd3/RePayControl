@@ -20,9 +20,17 @@ function metricCard(metric){
 function table(headers,rows){
   return `<div class="panel"><div class="table-scroll"><table><thead><tr>${headers.map(label=>`<th scope="col">${esc(label)}</th>`).join('')}</tr></thead><tbody>${rows.map(cells=>`<tr>${cells.map((cell,i)=>`<td><span class="mobile-column-label" aria-hidden="true">${esc(headers[i])}</span><span>${cell}</span></td>`).join('')}</tr>`).join('')}</tbody></table></div></div>`;
 }
+const avatarIds=Array.from({length:10},(_,i)=>'remoji-'+String(i+1).padStart(2,'0'));
+const avatarImage=id=>`<img class="user-avatar" src="/assets/avatars/${id}-still.svg" width="32" height="32" alt="">`;
+function userName(user){
+  if(!avatarIds.includes(user.avatarId))return esc(user.name);
+  const image=avatarImage(user.avatarId);
+  const avatar=user.waitlistNumber?`<button type="button" class="avatar-trigger" data-avatar-user="${user.waitlistNumber}" aria-label="تغيير ميموجي ${esc(user.name)}">${image}</button>`:image;
+  return `<span class="user-with-avatar">${avatar}<span>${esc(user.name)}</span></span>`;
+}
 function pocUsersTable(users){
   return table(['رقم قائمة الانتظار','المستخدم','الجوال','طلبات التحويل','المحادثات'],users.map(u=>[
-    numeric(u.waitlistNumber),esc(u.name),`<bdi>${esc(u.mobile)}</bdi>`,numeric(u.operations),numeric(u.conversations)
+    numeric(u.waitlistNumber),userName(u),`<bdi>${esc(u.mobile)}</bdi>`,numeric(u.operations),numeric(u.conversations)
   ]));
 }
 function issuesTable(issues){
@@ -72,7 +80,7 @@ function toast(message){$('#toast').textContent=message;$('#toast').hidden=false
 function login(){state.authenticated=false;$('#app').hidden=true;$('#login-screen').hidden=false;}
 async function api(url,options){const headers=new Headers(options&&options.headers);if(adminToken)headers.set('Authorization','Bearer '+adminToken);const r=await fetch(apiOrigin+url,{...(options||{}),headers,credentials:apiOrigin?'omit':'same-origin'});if(r.status===401&&url!=='/api/login'){login();throw Error('سجّل الدخول مجددًا');}const d=await r.json();if(!r.ok)throw Error(d.error||'تعذر تحميل البيانات');return d;}
 async function load(){
-  if(!state.authenticated||state.loading)return;
+  if(!state.authenticated||state.loading||$('#avatar-picker').open)return;
   state.loading=true;
   $('#refresh').classList.add('refreshing');
   $('#export').disabled=true;
@@ -107,6 +115,46 @@ function pdfPages(report){
     })
   ]);
 }
+const avatarPicker=$('#avatar-picker');
+$('#content').addEventListener('click',event=>{
+  const trigger=event.target.closest('[data-avatar-user]');
+  if(!trigger||state.loading)return;
+  const user=state.report.pocSnapshot.users.find(item=>item.waitlistNumber===Number(trigger.dataset.avatarUser));
+  if(!user)return;
+  avatarPicker.dataset.user=String(user.waitlistNumber);
+  $('#avatar-options').innerHTML=avatarIds.map((id,index)=>
+    `<button type="button" data-avatar-id="${id}" aria-label="ميموجي ${index+1}" aria-pressed="${id===user.avatarId}">${avatarImage(id)}</button>`
+  ).join('');
+  $('#avatar-error').textContent='';
+  avatarPicker.showModal();
+});
+$('#avatar-cancel').addEventListener('click',()=>avatarPicker.close());
+avatarPicker.addEventListener('cancel',event=>{if(avatarPicker.dataset.saving)event.preventDefault();});
+$('#avatar-options').addEventListener('click',async event=>{
+  const button=event.target.closest('[data-avatar-id]');
+  if(!button||avatarPicker.dataset.saving)return;
+  avatarPicker.dataset.saving='true';
+  const buttons=avatarPicker.querySelectorAll('button');
+  buttons.forEach(item=>item.disabled=true);
+  $('#avatar-error').textContent='';
+  const waitlistNumber=Number(avatarPicker.dataset.user);
+  try{
+    const {avatarId}=await api('/api/users/avatar',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({waitlistNumber,avatarId:button.dataset.avatarId})});
+    const user=state.report.pocSnapshot.users.find(item=>item.waitlistNumber===waitlistNumber);
+    user.avatarId=avatarId;
+    avatarPicker.close();
+    render();
+    document.querySelector(`[data-avatar-user="${waitlistNumber}"]`)?.focus();
+    toast('تم حفظ الميموجي');
+  }catch(error){
+    if(!state.authenticated)avatarPicker.close();
+    else $('#avatar-error').textContent=error.message;
+  }finally{
+    delete avatarPicker.dataset.saving;
+    buttons.forEach(item=>item.disabled=false);
+  }
+});
 $('#refresh').addEventListener('click',load);
 $('#password').addEventListener('input',e=>{e.target.value=e.target.value.replace(/[٠-٩]/g,c=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(c))).replace(/[۰-۹]/g,c=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(c)));});
 $('#login-form').addEventListener('submit',async e=>{e.preventDefault();const b=e.target.querySelector('button');b.disabled=true;$('#login-error').textContent='';try{const signedIn=await api('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:$('#password').value})});adminToken=signedIn.token||'';try{sessionStorage.setItem('rc-admin-session',adminToken);}catch{}$('#password').value='';state.authenticated=true;$('#login-screen').hidden=true;$('#app').hidden=false;await load();}catch(e){$('#login-error').textContent=e.message;}finally{b.disabled=false;}});

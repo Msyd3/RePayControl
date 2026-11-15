@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto';
 import { maskMobile } from './report.mjs';
 
 const cache=new Map();
@@ -7,6 +8,13 @@ function registrationDate(value){
   if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}T/.test(value))return null;
   const date=Date.parse(value);
   return Number.isFinite(date)&&date<=Date.now()?date:null;
+}
+
+export const validAvatar=id=>typeof id==='string'&&/^remoji-(0[1-9]|10)$/.test(id);
+function avatarFor(waitlistNumber,secret){
+  if(waitlistNumber===null)return null;
+  const index=createHmac('sha256',secret).update(String(waitlistNumber)).digest()[0]%10;
+  return 'remoji-'+String(index+1).padStart(2,'0');
 }
 
 export async function pocSnapshot(env=process.env,fetcher=fetch){
@@ -21,7 +29,13 @@ export async function pocSnapshot(env=process.env,fetcher=fetch){
     if(!response.ok)throw Error('Upstream unavailable');
     const d=await response.json();
     if(['users','conversations','transfers'].some(k=>count(d[k])===null)||!Array.isArray(d.userList)||d.userList.length>10000)throw Error('Unexpected schema');
-    const users=d.userList.map(u=>({waitlistNumber:Number.isSafeInteger(u.waitlistNumber)&&u.waitlistNumber>0?u.waitlistNumber:null,name:String(u.name||'لم يحدد الاسم').replace(/[\u0000-\u001f\u007f]/g,'').slice(0,120),mobile:maskMobile(u.mobile),operations:count(u.operations),conversations:count(u.conversations),registeredAt:registrationDate(u.registeredAt)}));
+    const users=d.userList.map(u=>{
+      const waitlistNumber=count(u.waitlistNumber)||null;
+      return {waitlistNumber,avatarId:validAvatar(u.avatarId)?u.avatarId:avatarFor(waitlistNumber,env.POC_ANALYTICS_PASSWORD),
+        name:String(u.name||'لم يحدد الاسم').replace(/[\u0000-\u001f\u007f]/g,'').slice(0,120),
+        mobile:maskMobile(u.mobile),operations:count(u.operations),conversations:count(u.conversations),
+        registeredAt:registrationDate(u.registeredAt)};
+    });
     value={state:'connected',scope:'all_time',source:'poc',users,metrics:{users:d.users,conversations:d.conversations,transferRequests:d.transfers,averageRequestsPerUser:amount(d.averageOperations)},fetchedAt:new Date().toISOString()};
   }catch{value={state:'error',scope:'all_time',message:'تعذر تحديث بيانات واتساب؛ أعد المحاولة لاحقًا'};}
   cache.clear();cache.set(key,{at:Date.now(),value});return value;

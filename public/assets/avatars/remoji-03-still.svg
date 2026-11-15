@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 250 250" fill="none"><defs><clipPath id="body-clip"><rect width="250" height="250" rx="125" fill="#008CFF" />
+</clipPath></defs><rect width="250" height="250" rx="125" fill="#008CFF" />
+<g clip-path="url(#body-clip)"><g id="eyes"><rect width="31.5751" height="69.5808" rx="15.7876" transform="matrix(0.886951 -0.461863 0.483571 0.875305 111 82.0956)" fill="white" />
+<rect width="31.5751" height="69.5808" rx="15.7876" transform="matrix(0.886951 -0.461863 0.483571 0.875305 161.848 63.5834)" fill="white" />
+</g></g></svg>

@@ -45,3 +45,15 @@
   .metrics.measurement-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 .pdf-page .metrics.measurement-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}
+
+.user-with-avatar{display:inline-flex;align-items:center;gap:8px}
+.user-avatar{display:block;width:32px;height:32px;object-fit:contain}
+.avatar-trigger,.avatar-options button{border:1px solid transparent;background:#f6f6f6;border-radius:8px;padding:2px}
+.avatar-trigger:hover,.avatar-options button:hover,.avatar-options button[aria-pressed=true]{border-color:#171717}
+#avatar-picker{max-width:calc(100% - 24px);width:350px;border:1px solid var(--border);border-radius:12px;padding:20px;color:#171717}
+#avatar-picker::backdrop{background:#0006}
+#avatar-picker h2{font-size:18px;margin:0 0 16px}
+.avatar-options{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.avatar-options button{display:grid;place-items:center;min-height:44px;padding:4px}
+#avatar-cancel{border:1px solid var(--border);border-radius:6px;background:#fff;padding:6px 12px}
+#avatar-error:empty{margin:0 0 12px}

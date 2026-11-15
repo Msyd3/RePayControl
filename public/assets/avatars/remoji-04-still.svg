@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 199 239" fill="none"><defs><clipPath id="body-clip"><path d="M0 99.5C0 44.5477 44.5477 0 99.5 0V0C154.452 0 199 44.5477 199 99.5V193C199 218.405 178.405 239 153 239H46C20.5949 239 0 218.405 0 193V99.5Z" fill="#2D323A" />
+</clipPath></defs><path d="M0 99.5C0 44.5477 44.5477 0 99.5 0V0C154.452 0 199 44.5477 199 99.5V193C199 218.405 178.405 239 153 239H46C20.5949 239 0 218.405 0 193V99.5Z" fill="#2D323A" />
+<g clip-path="url(#body-clip)"><g id="eyes"><rect x="65" y="49.7223" width="25" height="56" rx="12.5" transform="rotate(-1.65562 65 49.7223)" fill="white" />
+<rect x="107.486" y="54.1844" width="25" height="56" rx="12.5" transform="rotate(-1.65562 107.486 54.1844)" fill="white" />
+</g></g></svg>

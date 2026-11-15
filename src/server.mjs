@@ -8,7 +8,7 @@ import { prepareProfiles } from './report.mjs';
 import { taroutJournal, storageUnavailable } from './tarout-journal.mjs';
 import { connections } from './connectors.mjs';
 import { googleAnalytics } from './google-analytics.mjs';
-import { pocSnapshot } from './poc-snapshot.mjs';
+import { pocSnapshot, validAvatar } from './poc-snapshot.mjs';
 import { normalizeDigits, configuredPassword } from './auth.mjs';
 
 const publicDir=fileURLToPath(new URL('../public/',import.meta.url));
@@ -95,6 +95,23 @@ export function createApp({env=process.env,store,fetcher=fetch,journal=null}={})
       }
       if(url.pathname.startsWith('/api/')){
         if(!authenticated(req))return json(res,401,{error:'Unauthorized'});
+        if(url.pathname==='/api/users/avatar'&&req.method==='POST'){
+          if(!sameOrigin())return json(res,403,{error:'Forbidden'});
+          const input=await body(req);
+          if(!Number.isSafeInteger(input?.waitlistNumber)||input.waitlistNumber<1||!validAvatar(input.avatarId))
+            return json(res,400,{error:'اختر أحد الميموجي المتاحة'});
+          const {waitlistNumber,avatarId}=input;
+          if(!journal)throw storageUnavailable();
+          const snapshot=await pocSnapshot(env,fetcher);
+          if(snapshot.state!=='connected')return json(res,503,{error:'تعذر الاتصال بمصدر المستخدمين'});
+          if(!snapshot.users.some(user=>user.waitlistNumber===waitlistNumber))
+            return json(res,404,{error:'المستخدم غير موجود'});
+          const change={waitlistNumber,avatarId,version:`${Date.now()}-${randomBytes(8).toString('hex')}`};
+          try{await journal.appendAvatar(change);}
+          catch{throw storageUnavailable();}
+          store.insertAvatars([change]);
+          return json(res,200,{avatarId:store.avatar(waitlistNumber)});
+        }
         if(url.pathname==='/api/recovered-report'&&req.method==='POST'){
           if(!sameOrigin())return json(res,403,{error:'Forbidden'});
           if(!journal)throw storageUnavailable();
@@ -113,7 +130,9 @@ export function createApp({env=process.env,store,fetcher=fetch,journal=null}={})
           const dashboard=url.searchParams.get('view')==='dashboard';
           const report=dashboard?store.dashboard():store.report(url.searchParams.get('from'),url.searchParams.get('to'));
           const [poc,google]=await Promise.all([pocSnapshot(env,fetcher),dashboard?readGoogle():null]);
-          report.pocSnapshot=poc;
+          report.pocSnapshot=poc.state==='connected'?{...poc,users:poc.users.map(user=>({
+            ...user,avatarId:store.avatar(user.waitlistNumber)??user.avatarId
+          }))}:poc;
           if(dashboard)report.googleAnalytics=google;
           return json(res,200,report);
         }
@@ -129,8 +148,9 @@ export function createApp({env=process.env,store,fetcher=fetch,journal=null}={})
       }
       if(req.method!=='GET'&&req.method!=='HEAD')return json(res,405,{error:'Method not allowed'});
       const assets={'/runtime-config.js':'runtime-config.js','/assets/repay-logo.png':'assets/repay-logo.png','/':'index.html','/index.html':'index.html','/dashboard.js':'dashboard.js','/styles.css':'styles.css','/export-pdf.js':'export-pdf.js','/vendor/pdf-lib.min.js':'vendor/pdf-lib.min.js','/vendor/html2canvas.min.js':'vendor/html2canvas.min.js','/repay-control.js':'repay-control.js','/fonts/Tajarib-Regular.otf':'fonts/Tajarib-Regular.otf','/fonts/Tajarib-Bold.otf':'fonts/Tajarib-Bold.otf','/fonts/Tajarib-License.pdf':'fonts/Tajarib-License.pdf'};
-      const asset=assets[url.pathname];if(!asset)return json(res,404,{error:'Not found'});
-      const types={'.png':'image/png','.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.otf':'font/otf','.pdf':'application/pdf'};
+      const avatarAsset=/^\/assets\/avatars\/remoji-(0[1-9]|10)-still\.svg$/.test(url.pathname);
+      const asset=avatarAsset?url.pathname.slice(1):assets[url.pathname];if(!asset)return json(res,404,{error:'Not found'});
+      const types={'.svg':'image/svg+xml','.png':'image/png','.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.otf':'font/otf','.pdf':'application/pdf'};
       res.writeHead(200,{'Content-Type':types[path.extname(asset)],'Cache-Control':asset==='repay-control.js'?'public, max-age=300':'no-cache'});
       return res.end(req.method==='HEAD'?undefined:readFileSync(path.join(publicDir,asset)));
     }catch(error){return json(res,error.status||500,{error:error.status?error.message:'تعذر إكمال الطلب'});}

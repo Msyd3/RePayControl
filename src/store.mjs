@@ -51,6 +51,7 @@ export class Store {
       CREATE INDEX IF NOT EXISTS events_session ON events(project,session,ts);`);
     initializeReport(this.db);
     initializeLeads(this.db);
+    this.db.exec('CREATE TABLE IF NOT EXISTS user_avatars (waitlistNumber INTEGER PRIMARY KEY, avatarId TEXT NOT NULL, version TEXT NOT NULL)');
     this.db.exec('CREATE TABLE IF NOT EXISTS recovered_reports (capturedAt TEXT PRIMARY KEY, payload TEXT NOT NULL)');
     this.insert=this.db.prepare(`INSERT OR IGNORE INTO events(${['id','project','name','visitor','session','user','path','target','referrer','device','browser','campaign','source','medium','metric','value','duration','status','amountMinor','trusted','ts','entity','reasonCode','component'].join(',')}) VALUES(${Array(24).fill('?').join(',')})`);
     this.purge();
@@ -70,6 +71,15 @@ export class Store {
   }
   profiles(rows){return saveProfiles(this.db,this.secret,rows);}
   insertProfiles(rows){return insertProfiles(this.db,rows);}
+  avatar(waitlistNumber){
+    return this.db.prepare('SELECT avatarId FROM user_avatars WHERE waitlistNumber=?').get(waitlistNumber)?.avatarId;
+  }
+  insertAvatars(rows){
+    const insert=this.db.prepare(`INSERT INTO user_avatars(waitlistNumber,avatarId,version) VALUES(?,?,?)
+      ON CONFLICT(waitlistNumber) DO UPDATE SET avatarId=excluded.avatarId,version=excluded.version
+      WHERE excluded.version > user_avatars.version`);
+    for(const row of rows)insert.run(row.waitlistNumber,row.avatarId,row.version);
+  }
   insertRecoveredReports(rows){
     const insert=this.db.prepare('INSERT OR IGNORE INTO recovered_reports(capturedAt,payload) VALUES(?,?)');
     for(const row of rows)insert.run(row.capturedAt,JSON.stringify(row));

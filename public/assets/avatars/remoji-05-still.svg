@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="125 125 250 250" fill="none"><defs><clipPath id="body-clip"><rect x="125" y="125" width="250" height="250" rx="46" fill="#FF58D8" />
+</clipPath></defs><rect x="125" y="125" width="250" height="250" rx="46" fill="#FF58D8" />
+<g clip-path="url(#body-clip)"><g id="eyes"><rect x="275.703" y="277.225" width="25" height="56" rx="12.5" transform="rotate(-1.65562 275.703 277.225)" fill="white" />
+<rect x="318.189" y="281.687" width="25" height="56" rx="12.5" transform="rotate(-1.65562 318.189 281.687)" fill="white" />
+</g></g></svg>

@@ -40,19 +40,19 @@ export function taroutJournal(env, fetcher = fetch) {
     return JSON.parse(plain);
   }
 
-  async function list(stem = '') {
+  async function list(stem = '',namespace=prefix) {
     const url = new URL(bucket);
-    url.searchParams.set('prefix',prefix+stem);
+    url.searchParams.set('prefix',namespace+stem);
     const response = await request(url,'GET');
     const xml = await response.text();
     if (!xml.includes('ListBucketResult')) throw storageUnavailable();
-    const keys = [...xml.matchAll(/<Key>(control-journal\/[0-9a-f]{32}\.bin)<\/Key>/g)].map(match=>match[1]);
+    const keys = [...xml.matchAll(/<Key>([^<]+)<\/Key>/g)].map(match=>match[1]).filter(name=>name.startsWith(namespace)&&/^[0-9a-f]{32}\.bin$/.test(name.slice(namespace.length)));
     // Tarout caps lists at 1000. Split the namespace into smaller prefixes
     // whenever the response reaches the cap, so history isn't truncated.
     if (keys.length < listLimit && !/<IsTruncated>true<\/IsTruncated>/.test(xml)) return keys;
     if (stem.length >= 32) throw storageUnavailable();
     const children=[];
-    for(const digit of '0123456789abcdef')children.push(...await list(stem+digit));
+    for(const digit of '0123456789abcdef')children.push(...await list(stem+digit,namespace));
     return children;
   }
 
@@ -64,8 +64,12 @@ export function taroutJournal(env, fetcher = fetch) {
       if (body.length > batchLimit) throw storageUnavailable();
       await request(objectUrl(name),'PUT',body);
     },
+    async appendAvatar(change) {
+      const name='control-avatars/'+randomBytes(16).toString('hex')+'.bin';
+      await request(objectUrl(name),'PUT',seal(change));
+    },
     async restore(store) {
-      const keys = await list();
+      const [keys,avatarKeys] = await Promise.all([list(),list('','control-avatars/')]);
       const batches=[];
       for (let i=0;i<keys.length;i+=8) {
         const entries=await Promise.all(keys.slice(i,i+8).map(async name=>open(Buffer.from(await (await request(objectUrl(name),'GET')).arrayBuffer()))));
@@ -84,6 +88,11 @@ export function taroutJournal(env, fetcher = fetch) {
       store.insertEvents(events);
       store.insertProfiles(profiles);
       store.insertRecoveredReports(reports);
+      for(let i=0;i<avatarKeys.length;i+=8){
+        const rows=await Promise.all(avatarKeys.slice(i,i+8).map(async name=>
+          open(Buffer.from(await (await request(objectUrl(name),'GET')).arrayBuffer()))));
+        store.insertAvatars(rows);
+      }
       return {events:events.length,profiles:profiles.length};
     },
   };
