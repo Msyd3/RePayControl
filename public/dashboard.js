@@ -20,9 +20,10 @@ function metricCard(metric){
 function table(headers,rows){
   return `<div class="panel"><div class="table-scroll"><table><thead><tr>${headers.map(label=>`<th scope="col">${esc(label)}</th>`).join('')}</tr></thead><tbody>${rows.map(cells=>`<tr>${cells.map((cell,i)=>`<td><span class="mobile-column-label" aria-hidden="true">${esc(headers[i])}</span><span>${cell}</span></td>`).join('')}</tr>`).join('')}</tbody></table></div></div>`;
 }
-const person=u=>[esc(u.name),`<bdi>${esc(u.mobile)}</bdi>`,esc(date(u.registeredAt))];
 function pocUsersTable(users){
-  return table(['رقم قائمة الانتظار','المستخدم','الجوال','تاريخ التسجيل','طلبات التحويل','المحادثات'],users.map(u=>[numeric(u.waitlistNumber),...person(u),numeric(u.operations),numeric(u.conversations)]));
+  return table(['رقم قائمة الانتظار','المستخدم','الجوال','طلبات التحويل','المحادثات'],users.map(u=>[
+    numeric(u.waitlistNumber),esc(u.name),`<bdi>${esc(u.mobile)}</bdi>`,numeric(u.operations),numeric(u.conversations)
+  ]));
 }
 function issuesTable(issues){
   return table(['الخلل','السبب','مكان الخلل','عدد المرات','آخر ظهور'],issues.map(i=>[
