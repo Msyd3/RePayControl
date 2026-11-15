@@ -8,7 +8,7 @@ const state={report:null,authenticated:false,loading:false,exporting:false};
 const dateFormat=new Intl.DateTimeFormat('ar-SA',{timeZone:'Asia/Riyadh',calendar:'gregory',dateStyle:'medium'});
 const timestampFormat=new Intl.DateTimeFormat('ar-SA',{timeZone:'Asia/Riyadh',calendar:'gregory',dateStyle:'medium',timeStyle:'short'});
 const date=v=>v==null?'—':dateFormat.format(v);
-const sortedUsers=users=>[...users].sort((a,b)=>(b.registeredAt??-1)-(a.registeredAt??-1));
+const sortedUsers=users=>[...users].sort((a,b)=>(b.waitlistNumber??-1)-(a.waitlistNumber??-1));
 const numeric=v=>`<bdi>${number(v)}</bdi>`;
 
 const eventLabels={transfer_failed:'فشل عملية تحويل',withdrawal_failed:'فشل سحب بنكي',payment_failed:'فشل دفع',message_failed:'فشل تسليم رسالة',webhook_failed:'فشل معالجة الرسالة',ai_failure:'فشل المزوّد',js_error:'خلل في الواجهة',api_request:'خطأ في طلب الخدمة'};
