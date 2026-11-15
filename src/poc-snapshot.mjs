@@ -21,7 +21,7 @@ export async function pocSnapshot(env=process.env,fetcher=fetch){
     if(!response.ok)throw Error('Upstream unavailable');
     const d=await response.json();
     if(['users','conversations','transfers'].some(k=>count(d[k])===null)||!Array.isArray(d.userList)||d.userList.length>10000)throw Error('Unexpected schema');
-    const users=d.userList.map(u=>({name:String(u.name||'لم يحدد الاسم').replace(/[\u0000-\u001f\u007f]/g,'').slice(0,120),mobile:maskMobile(u.mobile),operations:count(u.operations),conversations:count(u.conversations),registeredAt:registrationDate(u.registeredAt)}));
+    const users=d.userList.map(u=>({waitlistNumber:Number.isSafeInteger(u.waitlistNumber)&&u.waitlistNumber>0?u.waitlistNumber:null,name:String(u.name||'لم يحدد الاسم').replace(/[\u0000-\u001f\u007f]/g,'').slice(0,120),mobile:maskMobile(u.mobile),operations:count(u.operations),conversations:count(u.conversations),registeredAt:registrationDate(u.registeredAt)}));
     value={state:'connected',scope:'all_time',source:'poc',users,metrics:{users:d.users,conversations:d.conversations,transferRequests:d.transfers,averageRequestsPerUser:amount(d.averageOperations)},fetchedAt:new Date().toISOString()};
   }catch{value={state:'error',scope:'all_time',message:'تعذر تحديث بيانات واتساب؛ أعد المحاولة لاحقًا'};}
   cache.clear();cache.set(key,{at:Date.now(),value});return value;
