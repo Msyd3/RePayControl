@@ -99,7 +99,7 @@ export function createApp({env=process.env,store,fetcher=fetch,journal=null}={})
         if(!limit('wallet-avatars:'+remote,30))return json(res,429,{error:'Rate limit'});
         const id=url.searchParams.get('id');
         if(!/^[a-f0-9]{32}$/.test(id||''))return json(res,400,{error:'Invalid transfer review'});
-        try{return json(res,200,await walletAvatars(id,env,fetcher,store,readUsers));}
+        try{return json(res,200,await walletAvatars(id,env,fetcher,store,readUsers,journal));}
         catch{return json(res,200,{});}
       }
       if(url.pathname==='/api/events'){

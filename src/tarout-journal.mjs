@@ -77,6 +77,17 @@ export function taroutJournal(env, fetcher = fetch) {
       if(body.length>snapshotLimit)throw storageUnavailable();
       await request(objectUrl('control-'+kind+'/latest.bin'),'PUT',body);
     },
+    async phoneAvatar(phoneKey,defaultId) {
+      const url=objectUrl('control-phone-avatars/'+phoneKey+'.bin');
+      const response=await request(url,'GET',undefined,true);
+      if(response.status!==404){
+        const saved=open(Buffer.from(await response.arrayBuffer()));
+        if(saved.version!==1||!/^remoji-(0[1-9]|10)$/.test(saved.avatarId))throw storageUnavailable();
+        return saved.avatarId;
+      }
+      await request(url,'PUT',seal({version:1,avatarId:defaultId}));
+      return defaultId;
+    },
     async appendAvatar(change) {
       const name='control-avatars/'+randomBytes(16).toString('hex')+'.bin';
       await request(objectUrl(name),'PUT',seal(change));

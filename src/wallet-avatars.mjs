@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto';
 import { maskMobile } from './report.mjs';
 
 function maskName(name){
@@ -6,7 +7,13 @@ function maskName(name){
   ).join(' ');
 }
 
-export async function walletAvatars(id,env,fetcher,store,readUsers){
+function defaultPhoneAvatar(phone){
+  let hash=2166136261;
+  for(const digit of phone)hash=Math.imul(hash^digit.charCodeAt(0),16777619);
+  return 'remoji-'+String((hash>>>0)%10+1).padStart(2,'0');
+}
+
+export async function walletAvatars(id,env,fetcher,store,readUsers,journal){
   const origin=new URL(env.POC_API_ORIGIN||'https://repay-poc.onrender.com');
   if(origin.protocol!=='https:'||origin.username||origin.password||origin.pathname!=='/')return {};
   const response=await fetcher(new URL('/api/transfer-reviews/'+id,origin),{
@@ -16,18 +23,24 @@ export async function walletAvatars(id,env,fetcher,store,readUsers){
   const review=await response.json();
   if(review.id!==id)return {};
   const snapshot=await readUsers();
-  if(snapshot.state!=='connected')return {};
-  const avatars={};
-  for(const role of ['sender','recipient']){
+  const users=snapshot.state==='connected'?snapshot.users:[];
+  const entries=await Promise.all(['sender','recipient'].map(async role=>{
     const person=review[role];
-    if(typeof person?.name!=='string')continue;
-    const mobile=maskMobile(person.phone);
-    if(mobile==='—')continue;
-    const matches=snapshot.users.filter(user=>user.mobile===mobile);
-    if(matches.length!==1||maskName(matches[0].name)!==person.name)continue;
-    const user=matches[0];
-    const avatar=store.avatar(user.waitlistNumber)??user.avatarId;
-    if(avatar)avatars[role]=avatar;
-  }
-  return avatars;
+    // This ID comes from the verified server-side review, never from a phone supplied by the browser.
+    const phone=person?.id;
+    if(typeof phone!=='string'||!/^9665[0-9]{8}$/.test(phone))return null;
+    const mobile=maskMobile(phone);
+    const matches=users.filter(user=>user.mobile===mobile);
+    if(matches.length===1&&typeof person.name==='string'&&maskName(matches[0].name)===person.name){
+      const user=matches[0];
+      const saved=store.avatar(user.waitlistNumber);
+      if(saved)return [role,saved];
+    }
+    const fallback=defaultPhoneAvatar(phone);
+    if(!journal)return [role,fallback];
+    const key=createHmac('sha256',store.secret).update('phone-avatar:'+phone).digest('hex');
+    try{return [role,await journal.phoneAvatar(key,fallback)];}
+    catch{return [role,fallback];}
+  }));
+  return Object.fromEntries(entries.filter(Boolean));
 }
