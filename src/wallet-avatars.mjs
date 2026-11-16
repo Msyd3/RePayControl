@@ -1,5 +1,4 @@
 import { maskMobile } from './report.mjs';
-import { pocSnapshot } from './poc-snapshot.mjs';
 
 function maskName(name){
   return name.split(' ').filter(Boolean).map(part=>
@@ -7,7 +6,7 @@ function maskName(name){
   ).join(' ');
 }
 
-export async function walletAvatars(id,env,fetcher,store){
+export async function walletAvatars(id,env,fetcher,store,readUsers){
   const origin=new URL(env.POC_API_ORIGIN||'https://repay-poc.onrender.com');
   if(origin.protocol!=='https:'||origin.username||origin.password||origin.pathname!=='/')return {};
   const response=await fetcher(new URL('/api/transfer-reviews/'+id,origin),{
@@ -16,7 +15,7 @@ export async function walletAvatars(id,env,fetcher,store){
   if(!response.ok)return {};
   const review=await response.json();
   if(review.id!==id)return {};
-  const snapshot=await pocSnapshot(env,fetcher);
+  const snapshot=await readUsers();
   if(snapshot.state!=='connected')return {};
   const avatars={};
   for(const role of ['sender','recipient']){

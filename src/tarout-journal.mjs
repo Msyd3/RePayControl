@@ -4,6 +4,7 @@ import { gzipSync, gunzipSync } from 'node:zlib';
 const prefix = 'control-journal/';
 const batchLimit = 128 * 1024;
 const listLimit = 1000;
+const snapshotLimit = 2 * 1024 * 1024;
 export const storageUnavailable = () => Object.assign(new Error('تعذر حفظ البيانات؛ أعد المحاولة لاحقًا'), {status:503});
 
 export function taroutJournal(env, fetcher = fetch) {
@@ -16,12 +17,12 @@ export function taroutJournal(env, fetcher = fetch) {
   const headers = { Authorization:`Bearer ${TAROUT_ACCESS_KEY}:${TAROUT_SECRET_KEY}` };
   const key = createHash('sha256').update('RePayControl Tarout journal v1\0' + SESSION_SECRET).digest();
 
-  async function request(url, method, body) {
+  async function request(url, method, body, allowMissing=false) {
     const response = await fetcher(url, {
       method, headers:{...headers,...(body ? {'Content-Type':'application/octet-stream'} : {})}, body,
       redirect:'error', cache:'no-store', signal:AbortSignal.timeout(15000),
     });
-    if (!response.ok) throw storageUnavailable();
+    if (!response.ok && !(allowMissing && response.status===404)) throw storageUnavailable();
     return response;
   }
 
@@ -32,11 +33,11 @@ export function taroutJournal(env, fetcher = fetch) {
     return Buffer.concat([nonce,cipher.getAuthTag(),encrypted]);
   }
 
-  function open(data) {
-    if (data.length < 28 || data.length > batchLimit) throw storageUnavailable();
+  function open(data, limit=batchLimit) {
+    if (data.length < 28 || data.length > limit) throw storageUnavailable();
     const decipher = createDecipheriv('aes-256-gcm',key,data.subarray(0,12));
     decipher.setAuthTag(data.subarray(12,28));
-    const plain = gunzipSync(Buffer.concat([decipher.update(data.subarray(28)),decipher.final()]),{maxOutputLength:batchLimit*8});
+    const plain = gunzipSync(Buffer.concat([decipher.update(data.subarray(28)),decipher.final()]),{maxOutputLength:limit*8});
     return JSON.parse(plain);
   }
 
@@ -63,6 +64,19 @@ export function taroutJournal(env, fetcher = fetch) {
       const body = seal({version:1,kind,rows});
       if (body.length > batchLimit) throw storageUnavailable();
       await request(objectUrl(name),'PUT',body);
+    },
+    async readUsers() {
+      const response=await request(objectUrl('control-users/latest.bin'),'GET',undefined,true);
+      if(response.status===404)return null;
+      const saved=open(Buffer.from(await response.arrayBuffer()),snapshotLimit);
+      if(saved.version!==1||saved.snapshot?.state!=='connected'||!Array.isArray(saved.snapshot.users))
+        throw storageUnavailable();
+      return saved.snapshot;
+    },
+    async saveUsers(snapshot) {
+      const body=seal({version:1,snapshot});
+      if(body.length>snapshotLimit)throw storageUnavailable();
+      await request(objectUrl('control-users/latest.bin'),'PUT',body);
     },
     async appendAvatar(change) {
       const name='control-avatars/'+randomBytes(16).toString('hex')+'.bin';
