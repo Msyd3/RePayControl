@@ -31,12 +31,14 @@ export async function walletAvatars(id,env,fetcher,store,readUsers,journal){
     if(typeof phone!=='string'||!/^9665[0-9]{8}$/.test(phone))return null;
     const mobile=maskMobile(phone);
     const matches=users.filter(user=>user.mobile===mobile);
+    let assigned;
     if(matches.length===1&&typeof person.name==='string'&&maskName(matches[0].name)===person.name){
       const user=matches[0];
       const saved=store.avatar(user.waitlistNumber);
       if(saved)return [role,saved];
+      assigned=user.avatarId;
     }
-    const fallback=defaultPhoneAvatar(phone);
+    const fallback=assigned??defaultPhoneAvatar(phone);
     if(!journal)return [role,fallback];
     const key=createHmac('sha256',store.secret).update('phone-avatar:'+phone).digest('hex');
     try{return [role,await journal.phoneAvatar(key,fallback)];}
