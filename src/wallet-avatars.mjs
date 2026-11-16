@@ -1,12 +1,4 @@
 import { createHmac } from 'node:crypto';
-import { maskMobile } from './report.mjs';
-
-function maskName(name){
-  return name.split(' ').filter(Boolean).map(part=>
-    part.length<=1?part+'***':part[0]+'*'.repeat(Math.min(part.length-1,8))
-  ).join(' ');
-}
-
 function defaultPhoneAvatar(phone){
   let hash=2166136261;
   for(const digit of phone)hash=Math.imul(hash^digit.charCodeAt(0),16777619);
@@ -29,15 +21,12 @@ export async function walletAvatars(id,env,fetcher,store,readUsers,journal){
     // This ID comes from the verified server-side review, never from a phone supplied by the browser.
     const phone=person?.id;
     if(typeof phone!=='string'||!/^9665[0-9]{8}$/.test(phone))return null;
-    const mobile=maskMobile(phone);
-    const matches=users.filter(user=>user.mobile===mobile);
-    let assigned;
-    if(matches.length===1&&typeof person.name==='string'&&maskName(matches[0].name)===person.name){
-      const user=matches[0];
-      const saved=store.avatar(user.waitlistNumber);
-      if(saved)return [role,saved];
-      assigned=user.avatarId;
-    }
+    const lookupKey=createHmac('sha256',env.POC_ANALYTICS_PASSWORD||'')
+      .update('repay-avatar-phone:'+phone).digest('hex');
+    const user=users.find(record=>record.phoneAvatarKey===lookupKey);
+    const selected=user?store.avatar(user.waitlistNumber):null;
+    if(selected)return [role,selected];
+    const assigned=user?.avatarId;
     const fallback=assigned??defaultPhoneAvatar(phone);
     if(!journal)return [role,fallback];
     const key=createHmac('sha256',store.secret).update('phone-avatar:'+phone).digest('hex');

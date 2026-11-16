@@ -31,7 +31,8 @@ export async function pocSnapshot(env=process.env,fetcher=fetch){
     if(['users','conversations','transfers'].some(k=>count(d[k])===null)||!Array.isArray(d.userList)||d.userList.length>10000)throw Error('Unexpected schema');
     const users=d.userList.map(u=>{
       const waitlistNumber=count(u.waitlistNumber)||null;
-      return {waitlistNumber,avatarId:validAvatar(u.avatarId)?u.avatarId:avatarFor(waitlistNumber,env.POC_ANALYTICS_PASSWORD),
+      const phoneAvatarKey=typeof u.phoneAvatarKey==='string'&&/^[a-f0-9]{64}$/.test(u.phoneAvatarKey)?u.phoneAvatarKey:null;
+      return {waitlistNumber,phoneAvatarKey,avatarId:validAvatar(u.avatarId)?u.avatarId:avatarFor(waitlistNumber,env.POC_ANALYTICS_PASSWORD),
         name:String(u.name||'لم يحدد الاسم').replace(/[\u0000-\u001f\u007f]/g,'').slice(0,120),
         mobile:maskMobile(u.mobile),operations:count(u.operations),conversations:count(u.conversations),
         registeredAt:registrationDate(u.registeredAt)};

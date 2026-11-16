@@ -174,7 +174,7 @@ export function createApp({env=process.env,store,fetcher=fetch,journal=null}={})
           const dashboard=url.searchParams.get('view')==='dashboard';
           const report=dashboard?store.dashboard():store.report(url.searchParams.get('from'),url.searchParams.get('to'));
           const [poc,google]=await Promise.all([readUsers(),dashboard?readMeasurement():null]);
-          report.pocSnapshot=poc.state==='connected'?{...poc,users:poc.users.map(user=>({
+          report.pocSnapshot=poc.state==='connected'?{...poc,users:poc.users.map(({phoneAvatarKey,...user})=>({
             ...user,avatarId:store.avatar(user.waitlistNumber)??user.avatarId
           }))}:poc;
           if(dashboard)report.googleAnalytics=google;
