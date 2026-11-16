@@ -17,30 +17,38 @@ function equal(a,b){const hash=x=>createHmac('sha256','repay-control-constant-co
 function csv(rows){return '\ufeff'+rows.map(row=>row.map(v=>{let s=String(v??'');if(/^[=+@\-\t\r]/.test(s))s="'"+s;return '"'+s.replaceAll('"','""')+'"';}).join(',')).join('\r\n');}
 export function createApp({env=process.env,store,fetcher=fetch,journal=null}={}){
   const readGoogle=googleAnalytics(env,fetcher);
-  let savedUsers;
-  let usersRefresh;
-  let usersRefreshAt=0;
-  async function readUsers(){
-    if(!journal)return pocSnapshot(env,fetcher);
-    if(!usersRefresh&&Date.now()>=usersRefreshAt){
-      usersRefreshAt=Date.now()+60000;
-      usersRefresh=(async()=>{
-        if(savedUsers===undefined)savedUsers=await journal.readUsers();
-        const incoming=await pocSnapshot(env,fetcher);
-        if(incoming.state!=='connected')return;
-        // Keep a previous, larger copy if the upstream database is reset or incomplete.
-        if(savedUsers&&incoming.users.length<savedUsers.users.length)return;
-        const same=savedUsers&&JSON.stringify([savedUsers.users,savedUsers.metrics])===
-          JSON.stringify([incoming.users,incoming.metrics]);
-        if(!same){
-          await journal.saveUsers(incoming);
-          savedUsers=incoming;
-        }
-      })().catch(()=>{console.warn('User snapshot synchronization failed');}).finally(()=>{usersRefresh=null;});
-    }
-    if(!savedUsers&&usersRefresh)await usersRefresh;
-    return savedUsers?{...savedUsers,storage:'tarout'}:{state:'error',message:'نسخة المستخدمين في تاروت غير متاحة حاليًا'};
+  function backedReport(kind,readSource,accept){
+    let saved;
+    let pending;
+    let refreshAt=0;
+    let stale=false;
+    return async function(){
+      if(!journal)return readSource();
+      if(!pending&&Date.now()>=refreshAt){
+        refreshAt=Date.now()+60000;
+        pending=(async()=>{
+          if(saved===undefined)saved=await journal.readSnapshot(kind);
+          const incoming=await readSource();
+          if(incoming.state!=='connected'||incoming.stale||!accept(incoming,saved)){
+            stale=true;
+            return;
+          }
+          const comparable=({fetchedAt,...report})=>JSON.stringify(report);
+          if(!saved||comparable(saved)!==comparable(incoming)){
+            await journal.saveSnapshot(kind,incoming);
+            saved=incoming;
+          }
+          stale=false;
+        })().catch(()=>{stale=true;console.warn('Snapshot synchronization failed: '+kind);})
+          .finally(()=>{pending=null;});
+      }
+      if(!saved&&pending)await pending;
+      return saved?{...saved,storage:'tarout',stale}:{state:'error',message:'النسخة المحفوظة في تاروت غير متاحة حاليًا'};
+    };
   }
+  const readUsers=backedReport('users',()=>pocSnapshot(env,fetcher),
+    (incoming,saved)=>Array.isArray(incoming.users)&&(!saved||incoming.users.length>=saved.users.length));
+  const readMeasurement=backedReport('measurement',readGoogle,()=>true);
   const retention=journal||env.RETENTION_DAYS==='0'?0:Math.max(1,Math.min(365,Number(env.RETENTION_DAYS)||90));
   if(!store){mkdirSync(env.DATA_DIR||'data',{recursive:true});store=new Store(path.join(env.DATA_DIR||'data','control.sqlite'),env.SESSION_SECRET||'',retention);}
   const origins={wallet:(env.WALLET_ORIGINS||'https://wallet.repay.sa').split(','),business:(env.BUSINESS_ORIGINS||'https://repay.sa,https://www.repay.sa').split(','),poc:(env.POC_ORIGINS||'https://repay-poc.onrender.com').split(',')};
@@ -165,7 +173,7 @@ export function createApp({env=process.env,store,fetcher=fetch,journal=null}={})
         if(url.pathname==='/api/control-report'){
           const dashboard=url.searchParams.get('view')==='dashboard';
           const report=dashboard?store.dashboard():store.report(url.searchParams.get('from'),url.searchParams.get('to'));
-          const [poc,google]=await Promise.all([readUsers(),dashboard?readGoogle():null]);
+          const [poc,google]=await Promise.all([readUsers(),dashboard?readMeasurement():null]);
           report.pocSnapshot=poc.state==='connected'?{...poc,users:poc.users.map(user=>({
             ...user,avatarId:store.avatar(user.waitlistNumber)??user.avatarId
           }))}:poc;
@@ -193,10 +201,11 @@ export function createApp({env=process.env,store,fetcher=fetch,journal=null}={})
   };
   const purgeTimer=setInterval(()=>store.purge(),3600000);purgeTimer.unref();
   const server=http.createServer(handler);
-  const usersTimer=journal?setInterval(()=>{void readUsers();},5*60000):null;
-  usersTimer?.unref();
-  if(journal)server.once('listening',()=>{void readUsers();});
-  server.on('close',()=>{clearInterval(purgeTimer);clearInterval(usersTimer);});
+  const syncBackup=()=>{void readUsers();void readMeasurement();};
+  const backupTimer=journal?setInterval(syncBackup,5*60000):null;
+  backupTimer?.unref();
+  if(journal)server.once('listening',syncBackup);
+  server.on('close',()=>{clearInterval(purgeTimer);clearInterval(backupTimer);});
   return {server,store};
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){

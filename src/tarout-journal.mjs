@@ -65,18 +65,17 @@ export function taroutJournal(env, fetcher = fetch) {
       if (body.length > batchLimit) throw storageUnavailable();
       await request(objectUrl(name),'PUT',body);
     },
-    async readUsers() {
-      const response=await request(objectUrl('control-users/latest.bin'),'GET',undefined,true);
+    async readSnapshot(kind) {
+      const response=await request(objectUrl('control-'+kind+'/latest.bin'),'GET',undefined,true);
       if(response.status===404)return null;
       const saved=open(Buffer.from(await response.arrayBuffer()),snapshotLimit);
-      if(saved.version!==1||saved.snapshot?.state!=='connected'||!Array.isArray(saved.snapshot.users))
-        throw storageUnavailable();
+      if(saved.version!==1||saved.snapshot?.state!=='connected')throw storageUnavailable();
       return saved.snapshot;
     },
-    async saveUsers(snapshot) {
+    async saveSnapshot(kind,snapshot) {
       const body=seal({version:1,snapshot});
       if(body.length>snapshotLimit)throw storageUnavailable();
-      await request(objectUrl('control-users/latest.bin'),'PUT',body);
+      await request(objectUrl('control-'+kind+'/latest.bin'),'PUT',body);
     },
     async appendAvatar(change) {
       const name='control-avatars/'+randomBytes(16).toString('hex')+'.bin';
