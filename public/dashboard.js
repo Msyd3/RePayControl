@@ -21,7 +21,7 @@ function table(headers,rows){
   return `<div class="panel"><div class="table-scroll"><table><thead><tr>${headers.map(label=>`<th scope="col">${esc(label)}</th>`).join('')}</tr></thead><tbody>${rows.map(cells=>`<tr>${cells.map((cell,i)=>`<td><span class="mobile-column-label" aria-hidden="true">${esc(headers[i])}</span><span>${cell}</span></td>`).join('')}</tr>`).join('')}</tbody></table></div></div>`;
 }
 const avatarIds=Array.from({length:10},(_,i)=>'remoji-'+String(i+1).padStart(2,'0'));
-const avatarImage=id=>`<img class="user-avatar" src="/assets/avatars/${id}-still.svg" width="32" height="32" alt="">`;
+const avatarImage=id=>`<img class="user-avatar" src="/assets/avatars/${id}-still.svg?v=repay-shapes-1" width="32" height="32" alt="">`;
 function userName(user){
   if(!avatarIds.includes(user.avatarId))return esc(user.name);
   const image=avatarImage(user.avatarId);
