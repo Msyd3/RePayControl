@@ -212,7 +212,9 @@ if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.ur
   if(process.env.NODE_ENV==='production'&&(!configuredPassword(process.env)||!process.env.SESSION_SECRET||process.env.SESSION_SECRET.length<32||!process.env.SERVER_INGEST_KEY||process.env.SERVER_INGEST_KEY.length<32))throw new Error('Configure ADMIN_PASSWORD (4+ characters), SESSION_SECRET and SERVER_INGEST_KEY (32+ characters each)');
   const journal=taroutJournal(process.env);
   const {server,store}=createApp({journal});
-  if(journal)await journal.restore(store);
   const host=process.env.HOST||'0.0.0.0';
-  server.listen(Number(process.env.PORT)||4317,host,()=>console.log(`RePayControl: http://${host}:${process.env.PORT||4317}`));
+  server.listen(Number(process.env.PORT)||4317,host,()=>{
+    console.log(`RePayControl: http://${host}:${process.env.PORT||4317}`);
+    if(journal)void journal.restore(store).catch(()=>console.warn('Initial Tarout restore failed'));
+  });
 }
