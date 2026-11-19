@@ -1,10 +1,17 @@
 name: Publish control.repay.sa frontend
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'public/**'
+      - 'scripts/build-pages.mjs'
+      - '.github/workflows/pages.yml'
   workflow_dispatch:
     inputs:
       api_origin:
         description: Verified HTTPS origin of the separately deployed RePayControl API
         required: false
+        default: https://repay-control-api.onrender.com
         type: string
 permissions:
   contents: read
@@ -23,7 +30,7 @@ jobs:
           node-version: 24
       - run: node scripts/build-pages.mjs --frontend-only
         env:
-          CONTROL_API_ORIGIN: ${{ inputs.api_origin }}
+          CONTROL_API_ORIGIN: ${{ inputs.api_origin || 'https://repay-control-api.onrender.com' }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist-pages
