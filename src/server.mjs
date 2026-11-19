@@ -213,5 +213,6 @@ if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.ur
   const journal=taroutJournal(process.env);
   const {server,store}=createApp({journal});
   if(journal)await journal.restore(store);
-  server.listen(Number(process.env.PORT)||4317,process.env.HOST||'127.0.0.1',()=>console.log(`RePayControl: http://${process.env.HOST||'127.0.0.1'}:${process.env.PORT||4317}`));
+  const host=process.env.HOST||'0.0.0.0';
+  server.listen(Number(process.env.PORT)||4317,host,()=>console.log(`RePayControl: http://${host}:${process.env.PORT||4317}`));
 }
