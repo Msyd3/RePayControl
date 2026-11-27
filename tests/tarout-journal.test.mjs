@@ -20,9 +20,16 @@ test('encrypted Tarout batches restore historical events and do not count retrie
   await journal.append('events',[old]);
   await journal.append('profiles',prepareProfiles(env.SESSION_SECRET,[{project:'poc',userId:'example',name:'Example Person',mobile:'0501234567'}]));
   assert.ok([...files.values()].every(bytes=>!bytes.includes('Example Person')&&!bytes.includes('0501234567')));
-  const restored=new Store(':memory:',env.SESSION_SECRET,0);
+  const newEnv={...env,SESSION_SECRET:'new-session-key-at-least-thirty-two-characters',TAROUT_JOURNAL_LEGACY_SECRET:env.SESSION_SECRET};
+  const newJournal=taroutJournal(newEnv,fetcher);
+  await journal.saveSnapshot('users',{state:'connected',users:[{name:'Example Person'}]});
+  assert.equal((await newJournal.readSnapshot('users')).users.length,1);
+  await newJournal.saveSnapshot('measurement',{state:'connected',value:2});
+  assert.equal((await newJournal.readSnapshot('measurement')).value,2);
+  await assert.rejects(journal.readSnapshot('measurement'));
+  const restored=new Store(':memory:',newEnv.SESSION_SECRET,0);
   try{
-    await taroutJournal(env,fetcher).restore(restored);
+    await newJournal.restore(restored);
     restored.purge();
     assert.equal(restored.db.prepare('SELECT count(*) AS n FROM events').get().n,1);
     assert.equal(restored.db.prepare('SELECT mobileMasked FROM user_profiles').get().mobileMasked,'050 XXXX 4567');

@@ -16,7 +16,10 @@ export function taroutJournal(env, fetcher = fetch) {
     throw new Error('Configure Tarout storage and the stable session secret');
   }
   const { bucket } = storage;
-  const key = createHash('sha256').update('RePayControl Tarout journal v1\0' + SESSION_SECRET).digest();
+  const deriveKey = secret => createHash('sha256').update('RePayControl Tarout journal v1\0' + secret).digest();
+  const key = deriveKey(SESSION_SECRET);
+  const legacySecret = env.TAROUT_JOURNAL_LEGACY_SECRET;
+  const legacyKey = legacySecret && legacySecret !== SESSION_SECRET ? deriveKey(legacySecret) : null;
 
   async function request(url, method, body, allowMissing=false) {
     const response = await storage.request(url, {
@@ -36,10 +39,19 @@ export function taroutJournal(env, fetcher = fetch) {
 
   function open(data, limit=batchLimit) {
     if (data.length < 28 || data.length > limit) throw storageUnavailable();
-    const decipher = createDecipheriv('aes-256-gcm',key,data.subarray(0,12));
-    decipher.setAuthTag(data.subarray(12,28));
-    const plain = gunzipSync(Buffer.concat([decipher.update(data.subarray(28)),decipher.final()]),{maxOutputLength:limit*8});
-    return JSON.parse(plain);
+    function decrypt(decryptionKey) {
+      const decipher = createDecipheriv('aes-256-gcm',decryptionKey,data.subarray(0,12));
+      decipher.setAuthTag(data.subarray(12,28));
+      return Buffer.concat([decipher.update(data.subarray(28)),decipher.final()]);
+    }
+    let compressed;
+    try {
+      compressed = decrypt(key);
+    } catch (error) {
+      if (!legacyKey) throw error;
+      compressed = decrypt(legacyKey);
+    }
+    return JSON.parse(gunzipSync(compressed,{maxOutputLength:limit*8}));
   }
 
   async function list(stem = '',namespace=prefix) {
