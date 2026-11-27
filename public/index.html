@@ -1,16 +1,23 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#111111"><title>نظرة عامة | RePayControl</title><link rel="icon" href="/assets/repay-logo.png" type="image/png"><link rel="stylesheet" href="/styles.css"><script src="/runtime-config.js" defer></script><script src="/control-entry.js" defer></script><script src="/dashboard.js?v=unified-1" defer></script></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#111111"><title>نظرة عامة | RePayControl</title><link rel="icon" href="/assets/repay-logo.png" type="image/png"><link rel="stylesheet" href="/styles.css"><script src="/runtime-config.js" defer></script><script src="/control-entry.js" defer></script><script src="/dashboard.js?v=full-sidebar-1" defer></script></head>
 <body>
 <section id="login-screen" class="login-screen" hidden><div class="login-card"><img class="login-logo" src="/assets/repay-logo.png" width="82" height="82" alt="RePay"><form id="login-form"><label for="login-email">البريد الإلكتروني</label><input id="login-email" type="email" dir="ltr" autocomplete="username" required><div id="login-password-field" hidden><label for="password">كلمة المرور</label><input id="password" type="password" dir="ltr" inputmode="numeric" autocomplete="current-password"></div><button class="primary" type="submit">دخول</button><p id="login-error" role="alert"></p></form></div></section>
 <div id="control-layout" class="control-layout" hidden>
-<aside class="control-sidebar"><img src="/assets/repay-logo.png" alt="RePay" width="52" height="52"><nav aria-label="أقسام ري باي"><a href="/" aria-current="page">الكنترول</a><a href="/dataroom/" data-admin-link>الداتا روم</a><a href="/dataroom/#invites" data-admin-link>الدعوات والصلاحيات</a></nav></aside>
+<aside class="control-sidebar">
+  <img src="/assets/repay-logo.png" alt="RePay" width="52" height="52">
+  <nav aria-label="أقسام ري باي">
+    <a href="/" aria-current="page">الرئيسية</a>
+    <a href="/dataroom/" data-admin-link>غرفة البيانات</a>
+    <button type="button" id="open-invites" data-admin-link>الدعوات</button>
+  </nav>
+  <div class="sidebar-bottom"><span id="updated-at">—</span><span>التوقيت: الرياض</span><button type="button" id="logout">تسجيل الخروج</button></div>
+</aside>
 <main id="app" hidden>
   <div class="page-title"><h1>نظرة عامة</h1><button id="export" class="primary export-button"><span aria-hidden="true">↓</span> تصدير PDF</button></div>
   <div class="toolbar"><div class="toolbar-status"><span id="sync-status">جارٍ التحميل</span><button id="refresh" class="icon-button" aria-label="تحديث البيانات">↻</button></div></div>
   <div id="load-error" class="notice" role="alert" hidden></div>
   <section id="content" aria-live="polite"></section>
-  <div class="bottom-line"><span id="updated-at">—</span><span>التوقيت: الرياض</span><button id="logout">تسجيل الخروج</button></div>
 </main>
 </div>
 <div id="toast" role="status" class="toast" hidden></div>
