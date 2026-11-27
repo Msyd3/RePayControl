@@ -118,7 +118,9 @@ function folderCard(folder) {
   number.dir = 'ltr';
   number.textContent = String(folder.number);
   const label = document.createElement('span');
+  label.className = 'folder-label';
   label.dir = 'auto';
+  label.title = folder.name;
   label.textContent = folder.name;
   button.append(number, label);
   button.onclick = () => show(folder.id);
