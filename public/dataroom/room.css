@@ -38,7 +38,7 @@
 .room-dialog .invite-close{display:grid;place-items:center;width:44px;height:44px;border:0;border-radius:8px;background:#ededed;color:#343434;font:26px/1 Arial,sans-serif}
 .room-dialog header form{flex:none}
 #viewer-content{width:100%;min-width:0;overflow-wrap:anywhere}
-#viewer-content iframe{display:block;width:100%;height:72dvh;border:0}
+
 #viewer-content img{display:block;max-width:100%;max-height:72vh;margin:auto}
 #viewer-content pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;line-height:1.75}
 
@@ -55,3 +55,11 @@
 @media(max-width:380px){
  .folder-toolbar .primary,.folder-toolbar .room-add-folder{padding-inline:6px;font-size:11px}
 }
+
+.viewer-pages{display:grid;gap:10px}
+.viewer-page{display:grid;place-items:center;min-width:0;min-height:min(75vw,550px);background:#f6f6f6;border-radius:6px;overflow:hidden}
+#viewer-content .viewer-page img{width:100%;height:auto;max-height:none;user-select:none;-webkit-touch-callout:none}
+.viewer-acceptance{margin-top:20px;padding:14px;border-radius:10px;background:#f3f3f3}
+.viewer-acceptance h3{margin:0 0 10px}
+.viewer-acceptance dt{font-weight:700}
+.viewer-acceptance dd{margin:0 0 8px;overflow-wrap:anywhere}
