@@ -10,9 +10,7 @@ const viewer = $('file-viewer');
 let session;
 let current = null;
 let db;
-let previews = [];
 let viewerUrl;
-let renderId = 0;
 let changing = false;
 
 async function request(route, data) {
@@ -93,6 +91,18 @@ function menu(kind, item) {
   const trigger = document.createElement('summary');
   trigger.textContent = '⋮';
   trigger.setAttribute('aria-label', 'خيارات ' + item.name);
+  const actions = document.createElement('div');
+  actions.className = 'file-menu-actions';
+  if (kind === 'folder') {
+    const rename = document.createElement('button');
+    rename.type = 'button';
+    rename.textContent = 'تعديل الاسم';
+    rename.onclick = () => {
+      details.open = false;
+      openFolderDialog(item);
+    };
+    actions.append(rename);
+  }
   const remove = document.createElement('button');
   remove.type = 'button';
   remove.textContent = 'حذف';
@@ -103,7 +113,8 @@ function menu(kind, item) {
     details.open = false;
     if (await window.confirmControlAction(message)) void change(() => api('delete', {kind, id: item.id}));
   };
-  details.append(trigger, remove);
+  if (item.id !== 'private-nda') actions.append(remove);
+  details.append(trigger, actions);
   return details;
 }
 
@@ -114,23 +125,26 @@ function folderCard(folder) {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'room-folder';
-  const number = document.createElement('span');
-  number.className = 'folder-number';
-  number.dir = 'ltr';
-  number.textContent = String(folder.number);
+  if (folder.parent === null) {
+    const number = document.createElement('span');
+    number.className = 'folder-number';
+    number.dir = 'ltr';
+    number.textContent = String(folder.number);
+    button.append(number);
+  }
   const label = document.createElement('span');
   label.className = 'folder-label';
   label.dir = 'auto';
   label.title = folder.name;
   label.textContent = folder.name;
-  button.append(number, label);
+  button.append(label);
   button.onclick = () => show(folder.id);
   card.append(button);
-  if (db.admin && folder.id !== 'private-nda') card.append(menu('folder', folder));
+  if (db.admin) card.append(menu('folder', folder));
   return card;
 }
 
-async function preview(file, target, thumbnail, active) {
+async function preview(file, target, active) {
   const response = await request('preview?id=' + encodeURIComponent(file.id));
   const type = response.headers.get('content-type') || '';
   if (type.startsWith('text/plain')) {
@@ -138,15 +152,14 @@ async function preview(file, target, thumbnail, active) {
     if (!active()) return;
     const node = document.createElement('pre');
     node.dir = 'auto';
-    node.textContent = thumbnail ? text.slice(0, 1400) : text;
+    node.textContent = text;
     target.replaceChildren(node);
     return;
   }
   const blob = await response.blob();
   if (!active()) return;
   const url = URL.createObjectURL(blob);
-  if (thumbnail) previews.push(url);
-  else viewerUrl = url;
+  viewerUrl = url;
   const isPdf = type.startsWith('application/pdf');
   const node = document.createElement(isPdf ? 'iframe' : 'img');
   node.src = url + (isPdf ? '#toolbar=0&navpanes=0&scrollbar=0&view=FitH' : '');
@@ -155,43 +168,28 @@ async function preview(file, target, thumbnail, active) {
   target.replaceChildren(node);
 }
 
-function fileCard(file, version) {
+function fileCard(file) {
   const card = document.createElement('article');
-  card.className = 'room-file-card';
+  card.className = 'room-folder-card';
   const button = document.createElement('button');
   button.type = 'button';
-  button.className = 'room-file-open';
-  const title = document.createElement('span');
-  title.className = 'room-file-title';
-  const extension = file.name.split('.').at(-1).toUpperCase();
+  button.className = 'room-folder';
+  const extension = (file.name.match(/\.([^.]+)$/)?.[1] ?? 'FILE').toUpperCase();
   const badge = document.createElement('span');
   badge.className = 'file-type';
   badge.dataset.type = extension;
   badge.textContent = extension.length <= 5 ? extension : 'FILE';
   const name = document.createElement('span');
+  name.className = 'folder-label';
   name.dir = 'auto';
+  name.title = file.name;
   name.textContent = file.name;
-  title.append(badge, name);
-  const picture = document.createElement('div');
-  picture.className = 'room-file-picture';
-  picture.textContent = 'معاينة الملف';
-  button.append(title, picture);
+  button.append(badge, name);
   button.onclick = () => openFile(file);
   card.append(button);
   if (db.admin) card.append(menu('file', file));
-  observer.observe(picture);
-  picture.loadPreview = () => preview(file, picture, true, () => renderId === version)
-    .catch(() => { picture.textContent = 'المعاينة غير متاحة'; });
   return card;
 }
-
-const observer = new IntersectionObserver(entries => {
-  for (const {target, isIntersecting} of entries) {
-    if (!isIntersecting) continue;
-    observer.unobserve(target);
-    void target.loadPreview();
-  }
-});
 
 function openFile(file) {
   const target = $('viewer-content');
@@ -201,7 +199,7 @@ function openFile(file) {
   const id = Symbol();
   viewer.previewId = id;
   const active = () => viewer.open && viewer.previewId === id;
-  void preview(file, target, false, active)
+  void preview(file, target, active)
     .catch(error => { if (active()) target.textContent = error.message; });
 }
 
@@ -213,10 +211,6 @@ viewer.addEventListener('close', () => {
 
 function show(id) {
   current = id;
-  renderId += 1;
-  observer.disconnect();
-  previews.forEach(url => URL.revokeObjectURL(url));
-  previews = [];
   const root = id === null;
   const folders = db.folders.filter(folder => folder.parent === id).sort((a, b) => a.number - b.number);
   $('folder-list').hidden = !root;
@@ -230,7 +224,7 @@ function show(id) {
   if (root) return;
   $('folder-title').textContent = db.folders.find(folder => folder.id === id).name;
   const files = db.files.filter(file => file.parent === id);
-  $('folder-files').replaceChildren(...files.map(file => fileCard(file, renderId)));
+  $('folder-files').replaceChildren(...files.map(fileCard));
   $('folder-files').hidden = files.length === 0;
   $('folder-empty').hidden = files.length > 0 || folders.length > 0;
 }
@@ -256,12 +250,20 @@ async function change(action) {
 
 const folderDialog = $('new-folder-dialog');
 const folderForm = $('new-folder-form');
-$('new-folder').onclick = () => {
+let editingFolder = null;
+
+function openFolderDialog(folder = null) {
   if (changing) return;
+  editingFolder = folder;
   folderForm.reset();
+  $('new-folder-title').textContent = folder ? 'تعديل اسم المجلد' : 'إضافة مجلد';
+  $('new-folder-name').value = folder?.name ?? '';
   $('new-folder-error').textContent = '';
+  folderForm.querySelector('button').textContent = folder ? 'حفظ الاسم' : 'إضافة المجلد';
   folderDialog.showModal();
-};
+}
+
+$('new-folder').onclick = () => openFolderDialog();
 folderForm.onsubmit = async event => {
   event.preventDefault();
   if (changing) return;
@@ -271,22 +273,26 @@ folderForm.onsubmit = async event => {
     errorNotice.textContent = 'اكتب اسم المجلد';
     return;
   }
-  const parent = current;
+  const item = editingFolder;
+  const parent = item ? item.parent : current;
   const submit = folderForm.querySelector('button');
   const status = $('admin-status');
   changing = true;
   submit.disabled = true;
   errorNotice.textContent = '';
-  status.textContent = 'جارٍ إضافة المجلد';
+  status.textContent = 'جارٍ الحفظ';
   try {
-    const folder = await api('folder', {name, parent});
-    db.folders.push(folder);
+    const folder = item
+      ? await api('rename-folder', {id: item.id, name})
+      : await api('folder', {name, parent});
+    if (item) Object.assign(item, folder);
+    else db.folders.push(folder);
     if (folderDialog.open) folderDialog.close();
     show(parent);
     const grid = $(parent === null ? 'folders' : 'nested-folders');
-    const card = [...grid.children].find(item => item.dataset.folderId === folder.id);
+    const card = [...grid.children].find(element => element.dataset.folderId === folder.id);
     card?.scrollIntoView({block: 'nearest'});
-    status.textContent = 'تمت إضافة المجلد';
+    status.textContent = item ? 'تم تعديل اسم المجلد' : 'تمت إضافة المجلد';
   } catch (error) {
     errorNotice.textContent = error.message;
     status.textContent = error.message;

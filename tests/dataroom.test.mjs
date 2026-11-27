@@ -49,6 +49,13 @@ for (const storageMode of ['shared', 'dedicated', 'attached']) test(storageMode 
  const child=await call('folder',{name:'Nested',parent:'root-2'},newAdmin.token);
  const nested=await call('upload',{name:'Nested.txt',parent:child.body.id,data:bytes.toString('base64')},newAdmin.token);
  assert.equal(nested.status,201);
+ assert.equal((await call('rename-folder',{id:child.body.id,name:'Viewer rename'},again.token)).status,403);
+ const renamed=await call('rename-folder',{id:child.body.id,name:'Nested renamed'},newAdmin.token);
+ assert.equal(renamed.status,200);
+ assert.equal(renamed.body.number,child.body.number);
+ assert.equal((await call('list',undefined,newAdmin.token)).body.folders.find(f=>f.id===child.body.id).name,'Nested renamed');
+ assert.equal((await call('preview?id='+nested.body.id,undefined,newAdmin.token)).status,200);
+
  assert.equal((await call('delete',{kind:'folder',id:child.body.id},newAdmin.token)).body.pending,0);
  assert.equal((await call('preview?id='+nested.body.id,undefined,newAdmin.token)).status,404);
  assert.equal((await call('delete',{kind:'file',id:uploaded.body.id},newAdmin.token)).body.pending,0);
