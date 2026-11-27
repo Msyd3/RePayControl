@@ -101,6 +101,8 @@
 .invites-dialog :is(input,select,textarea,button,summary):focus-visible{outline:none;box-shadow:none;background:#e7e7e7}
 .invites-dialog input:focus,.invites-dialog select:focus,.invites-dialog textarea:focus{outline:none;box-shadow:none;background:#ededed}
 #invite-form input,#invite-form select{border:0}
+#invite-form input{background:#ececec}
+#invite-form input:focus{background:#e4e4e4}
 .invite-actions select{height:44px;padding:0 8px;border-radius:8px}
 .invite-menu{position:relative;flex:none;margin-inline-start:auto}
 .invite-menu summary{display:grid;place-items:center;width:44px;height:44px;list-style:none;border-radius:8px;cursor:pointer;font:24px/1 Arial,sans-serif}
