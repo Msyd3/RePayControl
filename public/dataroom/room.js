@@ -49,7 +49,6 @@ async function logout() {
 }
 
 $('sidebar-logout').onclick = logout;
-$('guest-logout').onclick = logout;
 window.setupControlInvitations(api);
 $('nda-decline').onclick = logout;
 $('nda-form').onsubmit = async event => {
@@ -77,9 +76,9 @@ async function openRoom() {
   db = await api('list');
   $('room-email').textContent = session.email;
   $('room-name').textContent = session.name;
-  $('room-layout').classList.toggle('control-layout', db.admin);
-  $('room-sidebar').hidden = !db.admin;
-  $('guest-room-actions').hidden = db.admin;
+  $('room-layout').classList.add('control-layout');
+  $('room-admin-nav').hidden = !db.admin;
+  $('room-sidebar').hidden = false;
   nda.hidden = true;
   app.hidden = false;
   show(null);
