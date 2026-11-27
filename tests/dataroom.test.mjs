@@ -78,6 +78,18 @@ for (const storageMode of ['shared', 'dedicated', 'attached']) test(storageMode 
  assert.equal((await call('delete',{kind:'folder',id:'root-3'},newAdmin.token)).status,409);
  assert.equal(await handle.controlAccess({headers:{authorization:'Bearer '+again.token}}),null);
  assert.equal(await handle.controlAccess({headers:{authorization:'Bearer '+newAdmin.token}}),'owner');
+ const teamInvite=await call('invite',{email:'team@example.com',role:'team'},newAdmin.token);
+ assert.equal(teamInvite.status,200);
+ assert.equal(teamInvite.body.invite.expiresAt,null);
+ const team=await login('team@example.com');
+ assert.equal(team.needsNda,true);
+ assert.equal(await handle.controlAccess({headers:{authorization:'Bearer '+team.token}}),'team');
+ assert.equal((await call('accept',{name:'Team Test',agree:true,version:'NDA-v1'},team.token)).status,200);
+ assert.equal((await call('list',undefined,team.token)).status,200);
+ assert.equal((await call('invites',undefined,team.token)).status,403);
+ assert.equal((await call('edit-invite',{email:'team@example.com',role:'viewer'},newAdmin.token)).status,400);
+ assert.equal((await call('revoke',{email:'team@example.com'},newAdmin.token)).status,200);
+ assert.equal(await handle.controlAccess({headers:{authorization:'Bearer '+team.token}}),null);
  await call('invite',{email:'viewer@example.com',role:'viewer',days:7},newAdmin.token);
  const viewer=await login('viewer@example.com');
  assert.equal(viewer.needsNda,true);

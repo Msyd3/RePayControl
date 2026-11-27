@@ -76,7 +76,7 @@ async function openRoom() {
   $('room-email').textContent = session.email;
   $('room-name').textContent = session.name;
   $('room-layout').classList.add('control-layout');
-  const isViewer = session.role === 'viewer';
+  const isViewer = ['viewer', 'team'].includes(session.role);
   $('room-admin-nav').hidden = !db.admin && !isViewer;
   $('open-invites').hidden = !db.admin;
   $('room-sidebar').hidden = false;

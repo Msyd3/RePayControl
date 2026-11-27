@@ -46,7 +46,8 @@ export function createDataRoom(env,fetcher=fetch,pdfPreview=renderPdfPreview){
  const backend = sharedBucket || dedicatedBucket;
  const adminPin = normalizeDigits(env.DATAROOM_ADMIN_PASSWORD || env.ADMIN_PASSWORD);
  const ready = () => Boolean(backend && env.DATAROOM_ENCRYPTION_KEY?.length >= 32 && adminPin.length >= 4);
- const roleFor=(db,email)=>{if(email===ADMIN)return 'owner';const i=Object.hasOwn(db.invites,email)?db.invites[email]:null;return i&&!i.revokedAt&&Date.parse(i.expiresAt)>Date.now()?i.role:null;};
+ const isActiveInvite=invite=>Boolean(invite&&!invite.revokedAt&&(invite.role==='team'&&invite.expiresAt===null||Date.parse(invite.expiresAt)>Date.now()));
+ const roleFor=(db,email)=>{if(email===ADMIN)return 'owner';const i=Object.hasOwn(db.invites,email)?db.invites[email]:null;return isActiveInvite(i)?i.role:null;};
  const isAdmin=role=>role==='owner'||role==='admin';
  const err=(status,message)=>Object.assign(new Error(message),{status});
  const key=()=>createHash('sha256').update(env.DATAROOM_ENCRYPTION_KEY).digest();
@@ -95,7 +96,7 @@ export function createDataRoom(env,fetcher=fetch,pdfPreview=renderPdfPreview){
   const user=sessions.get(token);
   if(!user||user.exp<Date.now())return null;
   const role=roleFor(await readIndex(),user.email);
-  return role===user.role&&(isAdmin(role)||role==='viewer')?role:null;
+  return role===user.role&&(isAdmin(role)||role==='viewer'||role==='team')?role:null;
  }
  async function handle(req,res,url,json,sameOrigin){
   if(!ready())return json(res,503,{error:'Data room access and storage are not configured'});
@@ -194,7 +195,7 @@ export function createDataRoom(env,fetcher=fetch,pdfPreview=renderPdfPreview){
   if(!admin)throw err(403,'Admin only');
   function inviteStatus(invite) {
    if(invite.revokedAt)return 'Revoked';
-   if(Date.parse(invite.expiresAt)<=Date.now())return 'Expired';
+   if(!isActiveInvite(invite))return 'Expired';
    if(!invite.firstLoginAt)return 'Invited';
    if(invite.role==='dataroom'&&db.acceptances[invite.email]?.version!==VERSION)return 'Pending';
    return 'Accepted';
@@ -210,19 +211,22 @@ export function createDataRoom(env,fetcher=fetch,pdfPreview=renderPdfPreview){
    const days=input.days;
    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))throw err(400,'بريد إلكتروني غير صالح');
    if(email===ADMIN||email===s.email)throw err(403,'لا يمكن تعديل صلاحية هذا الحساب');
-   if(route!=='revoke'&&!['admin','viewer','dataroom'].includes(input.role))throw err(400,'صلاحية غير صالحة');
+   if(route!=='revoke'&&!['admin','viewer','dataroom','team'].includes(input.role))throw err(400,'صلاحية غير صالحة');
    const duration=Number(days);
-   if((route==='invite'||(route==='edit-invite'&&days!==undefined))&&
-    (!Number.isSafeInteger(duration)||duration<1||duration>3650))throw err(400,'مدة وصول غير صالحة');
+   const validDuration=Number.isSafeInteger(duration)&&duration>=1&&duration<=3650;
+   if(input.role!=='team'&&(route==='invite'||(route==='edit-invite'&&days!==undefined))&&!validDuration)
+    throw err(400,'مدة وصول غير صالحة');
    let invalidateSessions=route!=='edit-invite';
    const invite=await mutate(index=>{
     if(!isAdmin(roleFor(index,s.email))||roleFor(index,s.email)!==s.role)throw err(403,'غير مصرح لك');
     const existing=index.invites[email];
     if(route==='edit-invite'){
-     if(!existing||existing.revokedAt||Date.parse(existing.expiresAt)<=Date.now())throw err(404,'الدعوة غير سارية');
+     if(!isActiveInvite(existing))throw err(404,'الدعوة غير سارية');
+     if(existing.role==='team'&&input.role!=='team'&&!validDuration)throw err(400,'اختر مدة الوصول للصلاحية الجديدة');
      invalidateSessions=existing.role!==input.role;
      existing.role=input.role;
-     if(days!==undefined)existing.expiresAt=new Date(Date.now()+duration*86400000).toISOString();
+     if(input.role==='team')existing.expiresAt=null;
+     else if(days!==undefined)existing.expiresAt=new Date(Date.now()+duration*86400000).toISOString();
      return existing;
     }
     if(route==='revoke'){
@@ -230,9 +234,9 @@ export function createDataRoom(env,fetcher=fetch,pdfPreview=renderPdfPreview){
      existing.revokedAt=new Date().toISOString();
      return existing;
     }
-    if(existing&&!existing.revokedAt&&Date.parse(existing.expiresAt)>Date.now())throw err(409,'لهذا الحساب دعوة سارية. عدّل الصلاحية من القائمة.');
+    if(isActiveInvite(existing))throw err(409,'لهذا الحساب دعوة سارية. عدّل الصلاحية من القائمة.');
     const now=Date.now();
-    const item={email,role:input.role,createdAt:new Date(now).toISOString(),expiresAt:new Date(now+duration*86400000).toISOString(),firstLoginAt:null,lastLoginAt:null,revokedAt:null};
+    const item={email,role:input.role,createdAt:new Date(now).toISOString(),expiresAt:input.role==='team'?null:new Date(now+duration*86400000).toISOString(),firstLoginAt:null,lastLoginAt:null,revokedAt:null};
     index.invites[email]=item;
     return item;
    });
