@@ -64,6 +64,8 @@
 .control-layout>main{width:100%;min-width:0;margin-block:0}
 .control-sidebar{position:sticky;top:0;align-self:start;height:100dvh;display:flex;flex-direction:column;overflow:auto;padding:28px 18px 20px;background:#fff;border-inline-end:1px solid var(--border)}
 .control-sidebar img{display:block;margin:0 0 24px}
+.control-sidebar .sidebar-toggle{display:none}
+.sidebar-panel{display:flex;flex:1;flex-direction:column}
 .control-sidebar nav{display:grid;gap:6px}
 .control-sidebar nav a,.control-sidebar button{display:block;color:#242c39;text-decoration:none;text-align:start;padding:9px 10px;border:0;background:none;border-radius:8px}
 .control-sidebar nav a:not([aria-disabled=true]):hover,.control-sidebar button:not(:disabled):hover,.control-sidebar nav a[aria-current]{background:#ededed;color:#282828}
@@ -83,8 +85,11 @@
 #invite-list li{display:flex;justify-content:space-between;gap:12px;margin:10px 0;overflow-wrap:anywhere}
 @media(max-width:760px){
  .control-layout{grid-template-columns:1fr;grid-template-rows:auto 1fr}
- .control-sidebar{position:static;height:auto;flex-direction:row;align-items:center;flex-wrap:wrap;gap:8px;padding:10px;border-inline-end:0;border-bottom:1px solid var(--border)}
- .control-sidebar img{width:36px;height:36px;margin:0}
- .control-sidebar nav,.sidebar-bottom{display:flex;flex-wrap:wrap;align-items:center}
- .sidebar-bottom{margin:0;padding:0}
+ .control-sidebar{position:relative;z-index:5;height:auto;min-height:58px;padding:6px 12px;overflow:visible;border-inline-end:0;border-bottom:1px solid var(--border)}
+ .control-sidebar img{display:none}
+ .control-sidebar .sidebar-toggle{display:grid;place-items:center;align-self:flex-start;width:44px;height:44px;padding:0}
+ .sidebar-toggle span{width:20px;height:2px;background:currentColor;box-shadow:0 -6px currentColor,0 6px currentColor;border-radius:2px}
+ .sidebar-panel{display:none;position:absolute;inset-block-start:100%;inset-inline-start:12px;width:min(250px,calc(100vw - 24px));padding:10px;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:0 6px 18px #0002}
+ .sidebar-toggle[aria-expanded=true]+.sidebar-panel{display:flex}
+ .sidebar-bottom{margin:10px 0 0;padding:8px 0 0;border-top:1px solid var(--border)}
 }
