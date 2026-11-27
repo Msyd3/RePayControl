@@ -10,7 +10,8 @@ const viewer = $('file-viewer');
 let session;
 let current = null;
 let db;
-let viewerUrl;
+const viewerUrls = new Set();
+let pageObserver;
 let changing = false;
 
 async function request(route, data) {
@@ -93,13 +94,13 @@ function menu(kind, item) {
   trigger.setAttribute('aria-label', 'خيارات ' + item.name);
   const actions = document.createElement('div');
   actions.className = 'file-menu-actions';
-  if (kind === 'folder') {
+  {
     const rename = document.createElement('button');
     rename.type = 'button';
     rename.textContent = 'تعديل الاسم';
     rename.onclick = () => {
       details.open = false;
-      openFolderDialog(item);
+      openFolderDialog(item, kind);
     };
     actions.append(rename);
   }
@@ -147,6 +148,71 @@ function folderCard(folder) {
 async function preview(file, target, active) {
   const response = await request('preview?id=' + encodeURIComponent(file.id));
   const type = response.headers.get('content-type') || '';
+  if (type.startsWith('application/json')) {
+    const {pages, acceptance} = await response.json();
+    if (!active()) return;
+    const documentPages = document.createElement('div');
+    documentPages.className = 'viewer-pages';
+    const observer = new IntersectionObserver(entries => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        if (!active()) return;
+        observer.unobserve(entry.target);
+        const page = entry.target;
+        void (async () => {
+          try {
+            const imageResponse = await request('preview?id=' + encodeURIComponent(file.id) + '&page=' + page.dataset.number);
+            const image = await imageResponse.blob();
+            if (!active()) return;
+            const url = URL.createObjectURL(image);
+            viewerUrls.add(url);
+            const picture = document.createElement('img');
+            picture.src = url;
+            picture.alt = 'صفحة ' + page.dataset.number;
+            picture.draggable = false;
+            page.replaceChildren(picture);
+          } catch (error) {
+            if (active()) page.textContent = error.message;
+          }
+        })();
+      }
+    }, {root: viewer, rootMargin: '150px'});
+    pageObserver = observer;
+    for (let i = 1; i <= pages; i++) {
+      const page = document.createElement('div');
+      page.className = 'viewer-page';
+      page.dataset.number = String(i);
+      page.textContent = 'جارٍ فتح الصفحة ' + i;
+      documentPages.append(page);
+      pageObserver.observe(page);
+    }
+    target.replaceChildren(documentPages);
+    if (acceptance) {
+      const record = document.createElement('section');
+      record.className = 'viewer-acceptance';
+      const heading = document.createElement('h3');
+      heading.textContent = 'سجل الموافقة على اتفاقية عدم الإفصاح';
+      const fields = document.createElement('dl');
+      const formatTime = new Intl.DateTimeFormat('en-GB', {
+        dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Riyadh',
+      });
+      for (const [label, value] of [
+        ['الاسم', acceptance.name],
+        ['البريد الإلكتروني', acceptance.email],
+        ['وقت الموافقة (الرياض)', formatTime.format(new Date(acceptance.acceptedAt))],
+      ]) {
+        const field = document.createElement('dt');
+        const detail = document.createElement('dd');
+        field.textContent = label;
+        detail.dir = 'auto';
+        detail.textContent = value;
+        fields.append(field, detail);
+      }
+      record.append(heading, fields);
+      target.append(record);
+    }
+    return;
+  }
   if (type.startsWith('text/plain')) {
     const text = await response.text();
     if (!active()) return;
@@ -156,15 +222,15 @@ async function preview(file, target, active) {
     target.replaceChildren(node);
     return;
   }
+  if (type.startsWith('application/pdf')) throw Error('معاينة هذا الملف غير متاحة حاليًا');
   const blob = await response.blob();
   if (!active()) return;
   const url = URL.createObjectURL(blob);
-  viewerUrl = url;
-  const isPdf = type.startsWith('application/pdf');
-  const node = document.createElement(isPdf ? 'iframe' : 'img');
-  node.src = url + (isPdf ? '#toolbar=0&navpanes=0&scrollbar=0&view=FitH' : '');
-  if (isPdf) node.title = file.name;
-  else node.alt = file.name;
+  viewerUrls.add(url);
+  const node = document.createElement('img');
+  node.src = url;
+  node.alt = file.name;
+  node.draggable = false;
   target.replaceChildren(node);
 }
 
@@ -203,9 +269,11 @@ function openFile(file) {
     .catch(error => { if (active()) target.textContent = error.message; });
 }
 
+viewer.addEventListener('contextmenu', event => event.preventDefault());
 viewer.addEventListener('close', () => {
-  if (viewerUrl) URL.revokeObjectURL(viewerUrl);
-  viewerUrl = null;
+  pageObserver?.disconnect();
+  for (const url of viewerUrls) URL.revokeObjectURL(url);
+  viewerUrls.clear();
   $('viewer-content').replaceChildren();
 });
 
@@ -250,16 +318,18 @@ async function change(action) {
 
 const folderDialog = $('new-folder-dialog');
 const folderForm = $('new-folder-form');
-let editingFolder = null;
+let editTarget = null;
 
-function openFolderDialog(folder = null) {
+function openFolderDialog(item = null, kind = 'folder') {
   if (changing) return;
-  editingFolder = folder;
+  editTarget = item ? {item, kind} : null;
   folderForm.reset();
-  $('new-folder-title').textContent = folder ? 'تعديل اسم المجلد' : 'إضافة مجلد';
-  $('new-folder-name').value = folder?.name ?? '';
+  const label = kind === 'file' ? 'الملف' : 'المجلد';
+  $('new-folder-title').textContent = item ? 'تعديل اسم ' + label : 'إضافة مجلد';
+  $('new-folder-label').textContent = 'اسم ' + label;
+  $('new-folder-name').value = item?.name ?? '';
   $('new-folder-error').textContent = '';
-  folderForm.querySelector('button').textContent = folder ? 'حفظ الاسم' : 'إضافة المجلد';
+  folderForm.querySelector('button').textContent = item ? 'حفظ الاسم' : 'إضافة المجلد';
   folderDialog.showModal();
 }
 
@@ -270,10 +340,10 @@ folderForm.onsubmit = async event => {
   const name = $('new-folder-name').value.trim();
   const errorNotice = $('new-folder-error');
   if (!name) {
-    errorNotice.textContent = 'اكتب اسم المجلد';
+    errorNotice.textContent = 'اكتب الاسم';
     return;
   }
-  const item = editingFolder;
+  const item = editTarget?.item;
   const parent = item ? item.parent : current;
   const submit = folderForm.querySelector('button');
   const status = $('admin-status');
@@ -283,7 +353,7 @@ folderForm.onsubmit = async event => {
   status.textContent = 'جارٍ الحفظ';
   try {
     const folder = item
-      ? await api('rename-folder', {id: item.id, name})
+      ? await api('rename-' + editTarget.kind, {id: item.id, name})
       : await api('folder', {name, parent});
     if (item) Object.assign(item, folder);
     else db.folders.push(folder);
@@ -292,7 +362,7 @@ folderForm.onsubmit = async event => {
     const grid = $(parent === null ? 'folders' : 'nested-folders');
     const card = [...grid.children].find(element => element.dataset.folderId === folder.id);
     card?.scrollIntoView({block: 'nearest'});
-    status.textContent = item ? 'تم تعديل اسم المجلد' : 'تمت إضافة المجلد';
+    status.textContent = item ? 'تم تعديل الاسم' : 'تمت إضافة المجلد';
   } catch (error) {
     errorNotice.textContent = error.message;
     status.textContent = error.message;
