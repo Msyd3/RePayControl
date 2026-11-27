@@ -48,7 +48,6 @@ async function logout() {
   }
 }
 
-$('room-logout').onclick = logout;
 $('sidebar-logout').onclick = logout;
 window.setupControlInvitations(api);
 $('nda-decline').onclick = logout;
@@ -77,9 +76,9 @@ async function openRoom() {
   db = await api('list');
   $('room-email').textContent = session.email;
   $('room-name').textContent = session.name;
-  $('room-layout').classList.toggle('control-layout', db.admin);
-  $('room-sidebar').hidden = !db.admin;
-  $('room-header').hidden = db.admin;
+  window.applyControlPermissions(db.admin ? 'admin' : 'dataroom');
+  $('room-layout').classList.add('control-layout');
+  $('room-sidebar').hidden = false;
   nda.hidden = true;
   app.hidden = false;
   show(null);

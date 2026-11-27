@@ -119,3 +119,13 @@ window.setupControlInvitations = api => {
 
   trigger.addEventListener('click', openInvites);
 };
+
+
+window.applyControlPermissions = role => {
+  for (const item of document.querySelectorAll('.control-sidebar [data-roles]')) {
+    const enabled = item.dataset.roles.split(' ').includes(role);
+    item.setAttribute('aria-disabled', String(!enabled));
+    if (item instanceof HTMLButtonElement) item.disabled = !enabled;
+    else if (!enabled) item.removeAttribute('href');
+  }
+};
