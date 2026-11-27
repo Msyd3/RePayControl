@@ -60,8 +60,8 @@ window.setupControlInvitations = api => {
 <header><h2 id="invites-title">الدعوات والصلاحيات</h2><form method="dialog"><button class="invite-close" aria-label="إغلاق">×</button></form></header>
 <form id="invite-form">
 <label>البريد الإلكتروني <input name="email" type="email" dir="ltr" required></label>
-<label>الصلاحية <select name="role"><option value="dataroom">البيانات</option><option value="viewer">متصفح</option><option value="admin">مدير</option></select></label>
-<label>مدة الوصول <select name="days"><option value="7">7 أيام</option><option value="14">14 يومًا</option><option value="30">30 يومًا</option></select></label>
+<label>الصلاحية <select name="role"><option value="dataroom">البيانات</option><option value="viewer">متصفح</option><option value="team">فريق</option><option value="admin">مدير</option></select></label>
+<label id="invite-duration-field">مدة الوصول <select name="days"><option value="7">7 أيام</option><option value="14">14 يومًا</option><option value="30">30 يومًا</option></select></label>
 <button class="invite-submit">إضافة دعوة</button>
 </form>
 <p id="invite-status" role="status"></p><h3 class="invite-list-title">الدعوات</h3><ul id="invite-list"></ul>
@@ -69,7 +69,7 @@ window.setupControlInvitations = api => {
   document.body.append(template.content);
   const $ = id => document.getElementById(id);
 
-  const roleLabels = {dataroom: 'البيانات', viewer: 'متصفح', admin: 'مدير'};
+  const roleLabels = {dataroom: 'البيانات', viewer: 'متصفح', team: 'فريق', admin: 'مدير'};
   const expiryFormat = new Intl.DateTimeFormat('en-GB', {numberingSystem: 'latn', timeZone: 'Asia/Riyadh', day: '2-digit', month: '2-digit', year: 'numeric'});
   const defaultMessage = 'مرحبًا،\n\nتمت دعوتك من قبل المدير للوصول إلى منصة بيانات ري باي المالية . افتح الرابط وسجّل الدخول باستخدام البريد الإلكتروني اللي وصلتك عليه الدعوة\n\nhttps://control.repay.sa/';
   const statusLabels = {Invited: 'دعوة', Pending: 'انتظار', Accepted: 'قبول', Active: 'قبول', Expired: 'منتهية', Revoked: 'ملغاة'};
@@ -91,10 +91,10 @@ window.setupControlInvitations = api => {
         status.textContent = statusLabels[invite.status] ?? invite.status;
         identity.append(email, status);
         const expiry = new Date(invite.expiresAt);
-        if (Number.isFinite(expiry.getTime())) {
+        if (invite.expiresAt === null || Number.isFinite(expiry.getTime())) {
           const expiryLabel = document.createElement('span');
           expiryLabel.className = 'invite-expiry';
-          expiryLabel.textContent = 'ينتهي ' + expiryFormat.format(expiry);
+          expiryLabel.textContent = invite.expiresAt === null ? 'بدون مدة محددة' : 'ينتهي ' + expiryFormat.format(expiry);
           identity.append(expiryLabel);
         }
         const heading = document.createElement('div');
@@ -146,15 +146,18 @@ window.setupControlInvitations = api => {
         const save = document.createElement('button');
         save.type = 'button';
         save.textContent = 'حفظ';
-        const hasAccessChanges = () => select.value !== invite.role || Boolean(duration.value);
-        const updateSave = () => { save.disabled = !hasAccessChanges(); };
+        const updateSave = () => {
+          duration.hidden = select.value === 'team';
+          const durationRequired = invite.role === 'team' && select.value !== 'team';
+          save.disabled = durationRequired ? !duration.value : select.value === invite.role && (duration.hidden || !duration.value);
+        };
         updateSave();
         select.onchange = duration.onchange = updateSave;
         save.onclick = async () => {
           save.disabled = true;
           select.disabled = duration.disabled = true;
           try {
-            await api('edit-invite', {email: invite.email, role: select.value, days: duration.value || undefined});
+            await api('edit-invite', {email: invite.email, role: select.value, days: duration.hidden ? undefined : duration.value || undefined});
             $('invite-status').textContent = 'تم تحديث الدعوة';
             await openInvites();
           } catch (error) { $('invite-status').textContent = error.message; }
@@ -200,7 +203,14 @@ window.setupControlInvitations = api => {
     }
   }
 
-  $('invite-form').onsubmit = async event => {
+  const creationForm = $('invite-form');
+  const syncDurationField = () => {
+    const permanent = creationForm.elements.role.value === 'team';
+    $('invite-duration-field').hidden = permanent;
+    creationForm.elements.days.disabled = permanent;
+  };
+  creationForm.elements.role.addEventListener('change', syncDurationField);
+  creationForm.onsubmit = async event => {
     event.preventDefault();
     const form = event.target;
     const button = form.querySelector('button');
@@ -208,6 +218,7 @@ window.setupControlInvitations = api => {
     try {
       await api('invite', Object.fromEntries(new FormData(form)));
       form.reset();
+      syncDurationField();
       $('invite-status').textContent = 'تم حفظ الدعوة';
       await openInvites();
     } catch (error) {
