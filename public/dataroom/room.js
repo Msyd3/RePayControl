@@ -110,6 +110,7 @@ function menu(kind, item) {
 function folderCard(folder) {
   const card = document.createElement('div');
   card.className = 'room-folder-card';
+  card.dataset.folderId = folder.id;
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'room-folder';
@@ -267,20 +268,30 @@ folderForm.onsubmit = async event => {
   event.preventDefault();
   if (changing) return;
   const name = $('new-folder-name').value.trim();
-  if (!name) return;
+  const errorNotice = $('new-folder-error');
+  if (!name) {
+    errorNotice.textContent = 'اكتب اسم المجلد';
+    return;
+  }
   const parent = current;
   const submit = folderForm.querySelector('button');
+  const status = $('admin-status');
   changing = true;
   submit.disabled = true;
+  errorNotice.textContent = '';
+  status.textContent = 'جارٍ إضافة المجلد';
   try {
-    await api('folder', {name, parent});
-    folderDialog.close();
-    db = await api('list');
-    show(current === null || db.folders.some(folder => folder.id === current) ? current : null);
-    $('admin-status').textContent = 'تمت إضافة المجلد';
+    const folder = await api('folder', {name, parent});
+    db.folders.push(folder);
+    if (folderDialog.open) folderDialog.close();
+    show(parent);
+    const grid = $(parent === null ? 'folders' : 'nested-folders');
+    const card = [...grid.children].find(item => item.dataset.folderId === folder.id);
+    card?.scrollIntoView({block: 'nearest'});
+    status.textContent = 'تمت إضافة المجلد';
   } catch (error) {
-    $('new-folder-error').textContent = error.message;
-    if (!folderDialog.open) $('admin-status').textContent = error.message;
+    errorNotice.textContent = error.message;
+    status.textContent = error.message;
   } finally {
     changing = false;
     submit.disabled = false;
