@@ -10,7 +10,7 @@
   <div id="sidebar-panel" class="sidebar-panel">
   <nav aria-label="أقسام ري باي">
     <a href="/" aria-current="page">الرئيسية</a>
-    <a href="/dataroom/" data-roles="admin">غرفة البيانات</a>
+    <a href="/dataroom/" data-roles="admin viewer">غرفة البيانات</a>
     <button type="button" id="open-invites" data-roles="admin">الدعوات</button>
   </nav>
   <div class="sidebar-bottom"><button type="button" id="logout">تسجيل الخروج</button></div>
@@ -18,7 +18,7 @@
 </aside>
 <main id="app" hidden>
   <div class="page-title"><h1>نظرة عامة</h1><button id="export" class="primary export-button"><span aria-hidden="true">↓</span> تصدير PDF</button></div>
-  <div class="toolbar"><div class="toolbar-status"><span id="sync-status">جارٍ التحميل</span><button id="refresh" class="icon-button" aria-label="تحديث البيانات">↻</button></div></div>
+  <div class="toolbar"><div class="toolbar-status"><span id="sync-status">جارٍ التحميل</span></div></div>
   <div id="load-error" class="notice" role="alert" hidden></div>
   <section id="content" aria-live="polite"></section>
 </main>

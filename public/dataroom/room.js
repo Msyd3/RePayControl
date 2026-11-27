@@ -77,7 +77,9 @@ async function openRoom() {
   $('room-email').textContent = session.email;
   $('room-name').textContent = session.name;
   $('room-layout').classList.add('control-layout');
-  $('room-admin-nav').hidden = !db.admin;
+  const isViewer = session.role === 'viewer';
+  $('room-admin-nav').hidden = !db.admin && !isViewer;
+  $('open-invites').hidden = !db.admin;
   $('room-sidebar').hidden = false;
   nda.hidden = true;
   app.hidden = false;
@@ -279,7 +281,6 @@ $('file-input').onchange = event => {
   if (!token) { location.replace('/'); return; }
   try {
     session = await api('session');
-    if (session.role === 'viewer') { location.replace('/'); return; }
     if (session.needsNda) {
       $('nda-email').value = session.email;
       nda.hidden = false;

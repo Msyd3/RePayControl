@@ -53,9 +53,14 @@ for (const storageMode of ['shared', 'dedicated', 'attached']) test(storageMode 
  assert.equal(await handle.controlAccess({headers:{authorization:'Bearer '+newAdmin.token}}),'owner');
  await call('invite',{email:'viewer@example.com',role:'viewer',days:7},newAdmin.token);
  const viewer=await login('viewer@example.com');
- assert.equal(viewer.needsNda,false);
+ assert.equal(viewer.needsNda,true);
  assert.equal(await handle.controlAccess({headers:{authorization:'Bearer '+viewer.token}}),'viewer');
  assert.equal((await call('list',undefined,viewer.token)).status,403);
+ assert.equal((await call('accept',{name:'Viewer Test',agree:true,version:'NDA-v1'},viewer.token)).status,200);
+ assert.equal((await call('list',undefined,viewer.token)).status,200);
+ assert.equal((await call('preview?id='+f.id,undefined,viewer.token)).status,404);
+ assert.equal((await call('folder',{name:'Forbidden',parent:'root-2'},viewer.token)).status,403);
+ assert.equal((await call('invites',undefined,viewer.token)).status,403);
  const before=await inviteFor('viewer@example.com',newAdmin.token);
  assert.equal(before.status,'Accepted');
  assert.equal((await call('edit-invite',{email:'viewer@example.com',role:'admin'},viewer.token)).status,403);

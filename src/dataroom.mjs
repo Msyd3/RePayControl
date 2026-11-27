@@ -84,16 +84,15 @@ export function createDataRoom(env,fetcher=fetch){
    for(const [token,session] of sessions)if(session.exp<Date.now())sessions.delete(token);
    const token=randomBytes(32).toString('hex');
    sessions.set(token,{email,role,exp:Date.now()+3600000});
-   return json(res,200,{token,role,admin:isAdmin(role),needsNda:role==='dataroom'&&accepted?.version!==VERSION,name:isAdmin(role)?'Admin':accepted?.name||''});
+   return json(res,200,{token,role,admin:isAdmin(role),needsNda:!isAdmin(role)&&accepted?.version!==VERSION,name:isAdmin(role)?'Admin':accepted?.name||''});
   }
   const s=session(req);const currentDb=await readIndex();const role=roleFor(currentDb,s.email);if(!role||role!==s.role)throw err(403,'انتهت أو ألغيت صلاحية الوصول');const admin=isAdmin(role);
   if(route==='logout'&&req.method==='POST'){sessions.delete((req.headers.authorization||'').slice(7));return json(res,200,{ok:true});}
   const accepted=currentDb.acceptances[s.email];
   if(route==='session'&&req.method==='GET')return json(res,200,{
-   email:s.email,role,admin,needsNda:role==='dataroom'&&accepted?.version!==VERSION,
+   email:s.email,role,admin,needsNda:!isAdmin(role)&&accepted?.version!==VERSION,
    name:admin?'Admin':accepted?.name||'',
   });
-  if(role==='viewer')throw err(403,'الحساب مخصص لعرض لوحة التحكم');
   if(route==='accept'&&req.method==='POST'){
    if(admin)return json(res,200,{ok:true,admin:true,name:'Admin'});
    const d=await body(req);if(d.agree!==true||d.version!==VERSION)throw err(400,'NDA acceptance required');const name=cleanName(d.name);
