@@ -57,3 +57,13 @@
 .avatar-options button{display:grid;place-items:center;min-height:44px;padding:4px}
 #avatar-cancel{border:1px solid var(--border);border-radius:6px;background:#fff;padding:6px 12px}
 #avatar-error:empty{margin:0 0 12px}
+
+.control-layout{display:grid;grid-template-columns:190px minmax(0,1fr);gap:22px;max-width:1500px;margin:auto;padding:20px}
+.control-sidebar{align-self:start;position:sticky;top:20px;background:#fff;border:1px solid #e3e8ef;border-radius:16px;padding:16px}
+.control-sidebar img{display:block;margin:0 0 16px}
+.control-sidebar nav{display:grid;gap:4px}
+.control-sidebar a{color:#242c39;text-decoration:none;padding:9px 10px;border-radius:8px}
+.control-sidebar a:hover,.control-sidebar a[aria-current]{background:#edf4fc;color:#13598e}
+.read-only [data-avatar-user]{pointer-events:none}
+#login-password-field label{display:block;margin-top:12px}
+@media(max-width:760px){.control-layout{grid-template-columns:1fr;padding:10px;gap:10px}.control-sidebar{position:static;display:flex;align-items:center;gap:12px}.control-sidebar img{width:36px;height:36px;margin:0}.control-sidebar nav{display:flex;flex-wrap:wrap}}
