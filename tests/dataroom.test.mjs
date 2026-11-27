@@ -19,8 +19,12 @@ for (const storageMode of ['shared', 'dedicated', 'attached']) test(storageMode 
  assert.equal((await call('login',{email:'unknown@example.com'})).status,403);
  const admin=await login('m@repay.sa','٥٥٥٥');assert.equal(admin.needsNda,false);assert.equal((await call('list',undefined,admin.token)).status,200);
  assert.equal((await call('invite',{email:'investor@example.com',role:'dataroom',days:7},admin.token)).status,200);
+ const inviteFor=async(email,token)=>(await call('invites',undefined,token)).body.invites.find(i=>i.email===email);
+ assert.equal((await inviteFor('investor@example.com',admin.token)).status,'Invited');
  const user=await login('investor@example.com');assert.equal(user.needsNda,true);assert.equal((await call('list',undefined,user.token)).status,403);
+ assert.equal((await inviteFor('investor@example.com',admin.token)).status,'Pending');
  const accepted=await call('accept',{name:'Investor Test',agree:true,version:'NDA-v1'},user.token);assert.equal(accepted.status,200,JSON.stringify(accepted));
+ assert.equal((await inviteFor('investor@example.com',admin.token)).status,'Accepted');
  const a=await call('list',undefined,admin.token);const f=a.body.files.find(x=>x.name.endsWith('.pdf'));assert.ok(f);assert.equal(f.parent,'private-nda');
  const pdf=await call('preview?id='+f.id,undefined,admin.token);assert.equal(pdf.status,200);assert.equal(pdf.body.subarray(0,5).toString(),'%PDF-');
  const u=await call('list',undefined,user.token);assert.equal(u.body.files.length,0);assert.ok(!u.body.folders.some(x=>x.id==='private-nda'));assert.equal((await call('preview?id='+f.id,undefined,user.token)).status,404);
@@ -52,6 +56,15 @@ for (const storageMode of ['shared', 'dedicated', 'attached']) test(storageMode 
  assert.equal(viewer.needsNda,false);
  assert.equal(await handle.controlAccess({headers:{authorization:'Bearer '+viewer.token}}),'viewer');
  assert.equal((await call('list',undefined,viewer.token)).status,403);
+ const before=await inviteFor('viewer@example.com',newAdmin.token);
+ assert.equal(before.status,'Accepted');
+ assert.equal((await call('edit-invite',{email:'viewer@example.com',role:'admin'},viewer.token)).status,403);
+ assert.equal((await call('edit-invite',{email:'viewer@example.com',role:'admin'},newAdmin.token)).status,200);
+ const after=await inviteFor('viewer@example.com',newAdmin.token);
+ assert.equal(after.role,'admin');
+ assert.equal(after.expiresAt,before.expiresAt);
+ assert.equal((await login('viewer@example.com')).requiresPassword,true);
+ assert.equal(await handle.controlAccess({headers:{authorization:'Bearer '+viewer.token}}),null);
  await call('revoke',{email:'viewer@example.com'},newAdmin.token);
  assert.equal(await handle.controlAccess({headers:{authorization:'Bearer '+viewer.token}}),null);
 
