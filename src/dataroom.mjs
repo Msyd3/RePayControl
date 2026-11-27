@@ -6,23 +6,32 @@ const NDA_FOLDER='private-nda';
 const folders=['Registration','Business Info','Legal','Branding','Financial Data','Market','Product & Technology','PI','Partnerships','Marketing','HR','Legal','KPIs','Cap Table'];
 export function createDataRoom(env,fetcher=fetch){
  const codes=new Map(),sessions=new Map(),limits=new Map();let serial=Promise.resolve();
- const ready=()=>Boolean(env.DATAROOM_BUCKET_ID&&env.DATAROOM_ACCESS_KEY&&env.DATAROOM_SECRET_KEY&&env.DATAROOM_ENCRYPTION_KEY?.length>=32&&env.DATAROOM_EMAIL_API_KEY&&env.DATAROOM_FROM_EMAIL&&env.DATAROOM_BUCKET_ID!==env.TAROUT_BUCKET_ID);
+ const sharedStorage = env.DATAROOM_STORAGE_MODE === 'shared';
+ const dedicatedStorage = !env.DATAROOM_STORAGE_MODE || env.DATAROOM_STORAGE_MODE === 'dedicated';
+ const bucketId = sharedStorage ? env.TAROUT_BUCKET_ID : env.DATAROOM_BUCKET_ID;
+ const accessKey = sharedStorage ? env.TAROUT_ACCESS_KEY : env.DATAROOM_ACCESS_KEY;
+ const secretKey = sharedStorage ? env.TAROUT_SECRET_KEY : env.DATAROOM_SECRET_KEY;
+ const ready = () => Boolean(
+  (sharedStorage || (dedicatedStorage && bucketId !== env.TAROUT_BUCKET_ID)) &&
+  bucketId && accessKey && secretKey && env.DATAROOM_ENCRYPTION_KEY?.length >= 32 &&
+  env.DATAROOM_EMAIL_API_KEY && env.DATAROOM_FROM_EMAIL
+ );
  const roleFor=(db,email)=>{if(email===ADMIN)return 'owner';const i=db.invites[email];return i&&!i.revokedAt&&Date.parse(i.expiresAt)>Date.now()?i.role:null;};
  const isAdmin=role=>role==='owner'||role==='admin';
  const err=(status,message)=>Object.assign(new Error(message),{status});
  const key=()=>createHash('sha256').update(env.DATAROOM_ENCRYPTION_KEY).digest();
  function seal(buf){const iv=randomBytes(12),c=createCipheriv('aes-256-gcm',key(),iv);return Buffer.concat([iv,c.update(buf),c.final(),c.getAuthTag()]);}
  function open(buf){if(buf.length<28)throw err(503,'Storage unavailable');const d=createDecipheriv('aes-256-gcm',key(),buf.subarray(0,12));d.setAuthTag(buf.subarray(-16));return Buffer.concat([d.update(buf.subarray(12,-16)),d.final()]);}
- async function storage(name,method='GET',data){const url='https://tarout.sa/api/storage/gateway/'+encodeURIComponent(env.DATAROOM_BUCKET_ID)+'/dataroom/'+name;const r=await fetcher(url,{method,headers:{Authorization:'Bearer '+env.DATAROOM_ACCESS_KEY+':'+env.DATAROOM_SECRET_KEY,'Content-Type':'application/octet-stream'},body:data,redirect:'error',signal:AbortSignal.timeout(20000)});if(r.status===404&&method==='GET')return null;if(!r.ok)throw err(503,'Data room storage unavailable');return method==='GET'?open(Buffer.from(await r.arrayBuffer())):null;}
+ async function storage(name,method='GET',data){const url='https://tarout.sa/api/storage/gateway/'+encodeURIComponent(bucketId)+'/dataroom/'+name;const r=await fetcher(url,{method,headers:{Authorization:'Bearer '+accessKey+':'+secretKey,'Content-Type':'application/octet-stream'},body:data,redirect:'error',signal:AbortSignal.timeout(20000)});if(r.status===404&&method==='GET')return null;if(!r.ok)throw err(503,'Data room storage unavailable');return method==='GET'?open(Buffer.from(await r.arrayBuffer())):null;}
  async function readIndex(){const b=await storage('index.bin');const db=b?JSON.parse(b.toString()):{folders:folders.map((name,i)=>({id:'root-'+(i+1),parent:null,name,number:i+1})),files:[],acceptances:{}};db.invites??={};if(!db.folders.some(f=>f.id===NDA_FOLDER))db.folders.push({id:NDA_FOLDER,parent:'root-3',name:'NDA',number:db.folders.filter(f=>f.parent==='root-3').length+1,private:true});return db;}
  function privateFolder(db,id){const seen=new Set();while(id){if(seen.has(id))return true;seen.add(id);const f=db.folders.find(x=>x.id===id);if(!f)return true;if(f.private||f.id===NDA_FOLDER)return true;id=f.parent;}return false;}
  async function mutate(fn){const work=serial.then(async()=>{const db=await readIndex(),result=await fn(db);await storage('index.bin','PUT',seal(Buffer.from(JSON.stringify(db))));return result;});serial=work.catch(()=>{});return work;}
  async function body(req,max=16384){let size=0,chunks=[];for await(const c of req){size+=c.length;if(size>max)throw err(413,'File too large');chunks.push(c);}try{return JSON.parse(Buffer.concat(chunks).toString());}catch{throw err(400,'Invalid request');}}
  function throttle(k,max,window){const now=Date.now();if(limits.size>5000){for(const [id,v] of limits)if(v.until<now)limits.delete(id);if(limits.size>5000)throw err(429,'Try again later');}let v=limits.get(k);if(!v||v.until<now){v={n:0,until:now+window};limits.set(k,v);}if(++v.n>max)throw err(429,'Too many attempts');}
- function cleanName(s){if(typeof s!=='string'||!s.trim()||s.length>180||/[\\/\\x00-\\x1f]/.test(s))throw err(400,'Invalid name');return s.trim();}
+ function cleanName(s){if(typeof s!=='string'||!s.trim()||s.length>180||/[\\/\x00-\x1f]/.test(s))throw err(400,'Invalid name');return s.trim();}
  function session(req){const token=(req.headers.authorization||'').replace(/^Bearer /,'');const s=sessions.get(token);if(!s||s.exp<Date.now())throw err(401,'Verify email first');return s;}
  return async function handle(req,res,url,json,sameOrigin){
-  if(!ready())return json(res,503,{error:'Data room email and separate storage are not configured'});
+  if(!ready())return json(res,503,{error:'Data room email and storage are not configured'});
   if(req.method==='POST'&&!sameOrigin())return json(res,403,{error:'Forbidden'});
   const route=url.pathname.slice('/api/dataroom/'.length),remote=req.socket.remoteAddress||'unknown';
   if(route==='request-code'&&req.method==='POST'){const {email:raw}=await body(req);const email=String(raw||'').trim().toLowerCase();throttle('send:'+remote,10,900000);throttle('email:'+email,3,900000);if(!roleFor(await readIndex(),email))return json(res,403,{error:'غير مصرح لك بالدخول'});const code=String(randomInt(100000,1000000));const r=await fetcher('https://api.resend.com/emails',{method:'POST',headers:{Authorization:'Bearer '+env.DATAROOM_EMAIL_API_KEY,'Content-Type':'application/json'},body:JSON.stringify({from:env.DATAROOM_FROM_EMAIL,to:[email],subject:'RePay Data Room verification',text:'Your verification code is '+code+'. It expires in 10 minutes.'}),signal:AbortSignal.timeout(12000)});if(!r.ok)throw err(503,'Unable to send verification email');codes.set(email,{hash:createHmac('sha256',key()).update(email+code).digest(),exp:Date.now()+600000,tries:0});return json(res,200,{ok:true});}
