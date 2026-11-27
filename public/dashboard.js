@@ -90,7 +90,6 @@ async function api(url,options){const headers=new Headers(options&&options.heade
 async function load(){
   if(!state.authenticated||state.loading||$('#avatar-picker').open)return;
   state.loading=true;
-  $('#refresh').classList.add('refreshing');
   $('#export').disabled=true;
   $('#sync-status').textContent='جارٍ التحديث';
   try{
@@ -105,7 +104,6 @@ async function load(){
     }
   }finally{
     state.loading=false;
-    $('#refresh').classList.remove('refreshing');
     $('#export').disabled=!state.report||state.exporting;
   }
 }
@@ -163,7 +161,6 @@ $('#avatar-options').addEventListener('click',async event=>{
     buttons.forEach(item=>item.disabled=false);
   }
 });
-$('#refresh').addEventListener('click',load);
 window.setupControlInvitations((route,data)=>api('/api/dataroom/'+route,data===undefined?undefined:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}));
 $('#logout').addEventListener('click',async()=>{
  try{await api('/api/dataroom/logout',{method:'POST'});}
