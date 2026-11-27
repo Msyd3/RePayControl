@@ -75,14 +75,28 @@
 .sidebar-bottom button{font-size:14px}
 .read-only [data-avatar-user]{pointer-events:none}
 #login-password-field label{display:block;margin-top:12px}
-.invites-dialog{border:1px solid #dbe4ee;border-radius:16px;width:min(720px,94vw);max-height:90vh;padding:20px}
-.invites-dialog::backdrop{background:#16243a80}
-.invites-dialog header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:14px}
-.invites-dialog h2{margin:0}
-#invite-form{display:flex;align-items:end;flex-wrap:wrap;gap:12px}
-#invite-form label{display:grid;gap:6px}
-#invite-form input,#invite-form select{padding:8px;border:1px solid #dbe4ee;border-radius:8px}
-#invite-list li{display:flex;justify-content:space-between;gap:12px;margin:10px 0;overflow-wrap:anywhere}
+.invites-dialog{border:1px solid #e1e1e1;border-radius:16px;width:min(720px,calc(100vw - 24px));max-height:90vh;padding:20px}
+.invites-dialog::backdrop{background:#24242470}
+.invites-dialog header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+.invites-dialog h2{margin:0;font-size:22px}
+.invites-dialog button{min-height:44px;padding:0 14px;border:0;border-radius:8px;background:#ededed;color:#343434}
+.invites-dialog button:hover,.invites-dialog button:focus-visible{background:#dedede}
+.invites-dialog .invite-close{width:44px;padding:0;font:26px/1 Arial,sans-serif}
+#invite-form{display:grid;grid-template-columns:minmax(0,1fr) 105px 105px auto;align-items:end;gap:12px}
+#invite-form label{display:grid;gap:6px;min-width:0;font-size:14px}
+#invite-form input,#invite-form select{width:100%;height:44px;padding:0 10px;border:1px solid #dedede;border-radius:8px;background:#fff}
+#invite-form input:focus,#invite-form select:focus{outline:none;box-shadow:none;background:#f5f5f5}
+#invite-status:empty,#invite-list:empty{display:none}
+#invite-list{padding:0}
+#invite-list li{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:10px 0;overflow-wrap:anywhere}
+#invite-list button{flex:none}
+@media(max-width:600px){
+ .invites-dialog{padding:16px}
+ .invites-dialog h2{font-size:19px}
+ #invite-form{grid-template-columns:repeat(2,minmax(0,1fr))}
+ #invite-form label:first-child,#invite-form .invite-submit{grid-column:1/-1}
+ #invite-list li{flex-wrap:wrap}
+}
 @media(max-width:760px){
  .control-layout{grid-template-columns:1fr;grid-template-rows:auto 1fr}
  .control-sidebar{position:relative;z-index:5;height:auto;min-height:58px;padding:6px 12px;overflow:visible;border-inline-end:0;border-bottom:1px solid var(--border)}
