@@ -64,37 +64,83 @@ window.setupControlInvitations = api => {
 <label>مدة الوصول <select name="days"><option value="7">7 أيام</option><option value="14">14 يومًا</option><option value="30">30 يومًا</option></select></label>
 <button class="invite-submit">إضافة دعوة</button>
 </form>
-<p id="invite-status" role="status"></p><ul id="invite-list"></ul>
+<p id="invite-status" role="status"></p><h3 class="invite-list-title">المدعوون</h3><ul id="invite-list"></ul>
 </dialog>`;
   document.body.append(template.content);
   const $ = id => document.getElementById(id);
 
   const roleLabels = {dataroom: 'البيانات', viewer: 'متصفح', admin: 'مدير'};
-  const statusLabels = {Pending: 'بانتظار الدخول', Active: 'سارية', Expired: 'منتهية', Revoked: 'ملغاة'};
+  const statusLabels = {Invited: 'دعوة', Pending: 'انتظار', Accepted: 'قبول', Active: 'قبول', Expired: 'منتهية', Revoked: 'ملغاة'};
 
   async function openInvites() {
     const dialog = $('room-invites');
     if (!dialog.open) dialog.showModal();
     try {
       const {invites} = await api('invites');
-      $('invite-list').replaceChildren(...invites.map(invite => {
+      const rows = invites.map(invite => {
         const row = document.createElement('li');
-        const label = document.createElement('span');
-        label.textContent = [invite.email, roleLabels[invite.role], statusLabels[invite.status]].join(' · ');
-        row.append(label);
-        if (['Pending', 'Active'].includes(invite.status)) {
-          const revoke = document.createElement('button');
-          revoke.type = 'button';
-          revoke.textContent = 'إلغاء الوصول';
-          revoke.onclick = async () => {
-            if (!confirm('إلغاء وصول ' + invite.email + '؟')) return;
-            try { await api('revoke', {email: invite.email}); await openInvites(); }
-            catch (error) { $('invite-status').textContent = error.message; }
-          };
-          row.append(revoke);
+        const identity = document.createElement('div');
+        identity.className = 'invite-identity';
+        const email = document.createElement('bdi');
+        email.textContent = invite.email;
+        const status = document.createElement('span');
+        status.className = 'invite-badge';
+        status.dataset.status = invite.status;
+        status.textContent = statusLabels[invite.status] ?? invite.status;
+        identity.append(email, status);
+        row.append(identity);
+
+        if (invite.editable === false || ['Expired', 'Revoked'].includes(invite.status)) {
+          const role = document.createElement('span');
+          role.textContent = roleLabels[invite.role];
+          row.append(role);
+          return row;
         }
+
+        const actions = document.createElement('div');
+        actions.className = 'invite-actions';
+        const select = document.createElement('select');
+        select.setAttribute('aria-label', 'صلاحية ' + invite.email);
+        for (const [value, label] of Object.entries(roleLabels)) {
+          const option = document.createElement('option');
+          option.value = value;
+          option.textContent = label;
+          option.selected = value === invite.role;
+          select.append(option);
+        }
+        const save = document.createElement('button');
+        save.type = 'button';
+        save.textContent = 'حفظ';
+        save.disabled = true;
+        select.onchange = () => { save.disabled = select.value === invite.role; };
+        save.onclick = async () => {
+          save.disabled = true;
+          select.disabled = true;
+          try {
+            await api('edit-invite', {email: invite.email, role: select.value});
+            $('invite-status').textContent = 'تم تحديث الصلاحية';
+            await openInvites();
+          } catch (error) { $('invite-status').textContent = error.message; }
+          finally { select.disabled = false; save.disabled = select.value === invite.role; }
+        };
+        const revoke = document.createElement('button');
+        revoke.type = 'button';
+        revoke.textContent = 'إلغاء الوصول';
+        revoke.onclick = async () => {
+          if (!confirm('إلغاء وصول ' + invite.email + '؟')) return;
+          try { await api('revoke', {email: invite.email}); await openInvites(); }
+          catch (error) { $('invite-status').textContent = error.message; }
+        };
+        actions.append(select, save, revoke);
+        row.append(actions);
         return row;
-      }));
+      });
+      if (!rows.length) {
+        const empty = document.createElement('li');
+        empty.textContent = 'ما فيه دعوات حتى الآن';
+        rows.push(empty);
+      }
+      $('invite-list').replaceChildren(...rows);
     } catch (error) {
       $('invite-status').textContent = error.message;
     }

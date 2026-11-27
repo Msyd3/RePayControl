@@ -47,7 +47,7 @@ export function createDataRoom(env,fetcher=fetch){
   const user=sessions.get(token);
   if(!user||user.exp<Date.now())return null;
   const role=roleFor(await readIndex(),user.email);
-  return isAdmin(role)||role==='viewer'?role:null;
+  return role===user.role&&(isAdmin(role)||role==='viewer')?role:null;
  }
  async function handle(req,res,url,json,sameOrigin){
   if(!ready())return json(res,503,{error:'Data room access and storage are not configured'});
@@ -83,10 +83,10 @@ export function createDataRoom(env,fetcher=fetch){
    const {role,accepted}=access;
    for(const [token,session] of sessions)if(session.exp<Date.now())sessions.delete(token);
    const token=randomBytes(32).toString('hex');
-   sessions.set(token,{email,exp:Date.now()+3600000});
+   sessions.set(token,{email,role,exp:Date.now()+3600000});
    return json(res,200,{token,role,admin:isAdmin(role),needsNda:role==='dataroom'&&accepted?.version!==VERSION,name:isAdmin(role)?'Admin':accepted?.name||''});
   }
-  const s=session(req);const currentDb=await readIndex();const role=roleFor(currentDb,s.email);if(!role)throw err(403,'انتهت أو ألغيت صلاحية الوصول');const admin=isAdmin(role);
+  const s=session(req);const currentDb=await readIndex();const role=roleFor(currentDb,s.email);if(!role||role!==s.role)throw err(403,'انتهت أو ألغيت صلاحية الوصول');const admin=isAdmin(role);
   if(route==='logout'&&req.method==='POST'){sessions.delete((req.headers.authorization||'').slice(7));return json(res,200,{ok:true});}
   const accepted=currentDb.acceptances[s.email];
   if(route==='session'&&req.method==='GET')return json(res,200,{
@@ -129,9 +129,48 @@ export function createDataRoom(env,fetcher=fetch){
    return res.end(bytes);
   }
   if(!admin)throw err(403,'Admin only');
-  if(route==='invites'&&req.method==='GET')return json(res,200,{invites:Object.values(db.invites).map(i=>({...i,status:i.revokedAt?'Revoked':Date.parse(i.expiresAt)<=Date.now()?'Expired':i.firstLoginAt?'Active':'Pending'}))});
-  if(route==='invite'&&req.method==='POST'){const d=await body(req),email=String(d.email||'').trim().toLowerCase(),days=Number(d.days);if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||email===ADMIN||!['admin','viewer','dataroom'].includes(d.role)||!Number.isSafeInteger(days)||days<1||days>3650)throw err(400,'Invalid invitation');const i=await mutate(db=>{const old=db.invites[email];const now=new Date();const item={email,role:d.role,createdAt:old?.createdAt||now.toISOString(),expiresAt:new Date(now.getTime()+days*86400000).toISOString(),firstLoginAt:old?.firstLoginAt||null,lastLoginAt:old?.lastLoginAt||null,revokedAt:null};db.invites[email]=item;return item;});return json(res,200,{invite:i});}
-  if(route==='revoke'&&req.method==='POST'){const d=await body(req),email=String(d.email||'').trim().toLowerCase();if(email===ADMIN)throw err(403,'Owner protected');await mutate(db=>{if(!db.invites[email])throw err(404,'Invite not found');db.invites[email].revokedAt=new Date().toISOString();});return json(res,200,{ok:true});}
+  function inviteStatus(invite) {
+   if(invite.revokedAt)return 'Revoked';
+   if(Date.parse(invite.expiresAt)<=Date.now())return 'Expired';
+   if(!invite.firstLoginAt)return 'Invited';
+   if(invite.role==='dataroom'&&db.acceptances[invite.email]?.version!==VERSION)return 'Pending';
+   return 'Accepted';
+  }
+  if(route==='invites'&&req.method==='GET'){
+   const invites=Object.values(db.invites).sort((a,b)=>b.createdAt.localeCompare(a.createdAt))
+    .map(invite=>({...invite,status:inviteStatus(invite),editable:invite.email!==s.email}));
+   return json(res,200,{invites});
+  }
+  if(['invite','edit-invite','revoke'].includes(route)&&req.method==='POST'){
+   const input=await body(req);
+   const email=String(input.email||'').trim().toLowerCase();
+   const days=Number(input.days);
+   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))throw err(400,'بريد إلكتروني غير صالح');
+   if(email===ADMIN||email===s.email)throw err(403,'لا يمكن تعديل صلاحية هذا الحساب');
+   if(route!=='revoke'&&!['admin','viewer','dataroom'].includes(input.role))throw err(400,'صلاحية غير صالحة');
+   if(route==='invite'&&(!Number.isSafeInteger(days)||days<1||days>3650))throw err(400,'مدة وصول غير صالحة');
+   const invite=await mutate(index=>{
+    if(!isAdmin(roleFor(index,s.email))||roleFor(index,s.email)!==s.role)throw err(403,'غير مصرح لك');
+    const existing=index.invites[email];
+    if(route==='edit-invite'){
+     if(!existing||existing.revokedAt||Date.parse(existing.expiresAt)<=Date.now())throw err(404,'الدعوة غير سارية');
+     existing.role=input.role;
+     return existing;
+    }
+    if(route==='revoke'){
+     if(!existing)throw err(404,'الدعوة غير موجودة');
+     existing.revokedAt=new Date().toISOString();
+     return existing;
+    }
+    if(existing&&!existing.revokedAt&&Date.parse(existing.expiresAt)>Date.now())throw err(409,'لهذا الحساب دعوة سارية. عدّل الصلاحية من القائمة.');
+    const now=Date.now();
+    const item={email,role:input.role,createdAt:new Date(now).toISOString(),expiresAt:new Date(now+days*86400000).toISOString(),firstLoginAt:null,lastLoginAt:null,revokedAt:null};
+    index.invites[email]=item;
+    return item;
+   });
+   for(const [token,active] of sessions)if(active.email===email)sessions.delete(token);
+   return json(res,200,{ok:true,invite});
+  }
   if(route==='delete'&&req.method==='POST'){
    const {kind,id}=await body(req);
    if(!['file','folder'].includes(kind)||typeof id!=='string')throw err(400,'Invalid item');
