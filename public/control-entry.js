@@ -64,7 +64,7 @@ window.setupControlInvitations = api => {
 <label>مدة الوصول <select name="days"><option value="7">7 أيام</option><option value="14">14 يومًا</option><option value="30">30 يومًا</option></select></label>
 <button class="invite-submit">إضافة دعوة</button>
 </form>
-<p id="invite-status" role="status"></p><h3 class="invite-list-title">المدعوون</h3><ul id="invite-list"></ul>
+<p id="invite-status" role="status"></p><h3 class="invite-list-title">الدعوات</h3><ul id="invite-list"></ul>
 </dialog>`;
   document.body.append(template.content);
   const $ = id => document.getElementById(id);
