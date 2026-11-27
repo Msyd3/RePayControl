@@ -12,7 +12,7 @@
 .room-folder-card .file-menu button{top:100%}
 .room-folder .folder-number{display:grid;place-items:center;flex:0 0 29px;width:29px;height:29px;border-radius:50%;background:#555;color:#fff;font:700 13px/1 Tajarib,sans-serif;font-variant-numeric:tabular-nums}
 .room-folder-card .room-folder:hover{background:#e2e2e2}
-.room-add-folder{border:0;border-radius:8px;background:#dedede;color:#303030;padding:10px 16px;min-height:44px}
+.room-add-folder{border:0;border-radius:8px;background:#dedede;color:#303030;padding:6px 12px;min-height:36px;font-size:13px;line-height:1.3}
 .room-add-folder:hover{background:#d3d3d3}
 .room-create-dialog{width:min(430px,calc(100vw - 24px))}
 #new-folder-form{display:grid;gap:10px}
