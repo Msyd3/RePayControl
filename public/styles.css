@@ -14,7 +14,7 @@
 .product-section{padding:0 0 24px}
 .product-section + .product-section{border-top:1px solid var(--border);padding-top:24px}
 .product-section h3{margin:24px 0 10px;font-size:16px}
-.product-section .section-title{margin-top:8px}
+.product-section .section-title{margin:8px 0 8px}
 .product-section .metric{min-height:112px}
 
 .mobile-column-label{display:none}
