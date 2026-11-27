@@ -57,12 +57,12 @@ window.setupControlInvitations = api => {
   const trigger = document.getElementById('open-invites');
   const template = document.createElement('template');
   template.innerHTML = `<dialog id="room-invites" class="invites-dialog" aria-labelledby="invites-title">
-<header><h2 id="invites-title">الدعوات والصلاحيات</h2><form method="dialog"><button class="primary">إغلاق</button></form></header>
+<header><h2 id="invites-title">الدعوات والصلاحيات</h2><form method="dialog"><button class="invite-close" aria-label="إغلاق">×</button></form></header>
 <form id="invite-form">
 <label>البريد الإلكتروني <input name="email" type="email" dir="ltr" required></label>
 <label>الصلاحية <select name="role"><option value="dataroom">البيانات</option><option value="viewer">متصفح</option><option value="admin">مدير</option></select></label>
 <label>مدة الوصول <select name="days"><option value="7">7 أيام</option><option value="14">14 يومًا</option><option value="30">30 يومًا</option></select></label>
-<button class="primary">إضافة دعوة</button>
+<button class="invite-submit">إضافة دعوة</button>
 </form>
 <p id="invite-status" role="status"></p><ul id="invite-list"></ul>
 </dialog>`;
