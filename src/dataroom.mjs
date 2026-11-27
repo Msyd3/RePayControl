@@ -234,6 +234,20 @@ export function createDataRoom(env,fetcher=fetch){
    return json(res,200,{ok:true,pending:pending.length-deleted.length});
   }
   if(route==='folder'&&req.method==='POST'){const d=await body(req),name=cleanName(d.name),parent=d.parent??null;const folder=await mutate(db=>{if(parent!==null&&!db.folders.some(x=>x.id===parent))throw err(404,'Folder not found');if(db.folders.some(f=>f.parent===parent&&f.name.toLowerCase()===name.toLowerCase()))throw err(409,'يوجد مجلد بهذا الاسم');const item={id:randomBytes(16).toString('hex'),name,parent,number:1+Math.max(0,...db.folders.filter(x=>x.parent===parent).map(x=>x.number))};db.folders.push(item);return item;});return json(res,201,folder);}
+  if(route==='rename-folder'&&req.method==='POST'){
+   const input=await body(req);
+   const name=cleanName(input.name);
+   const folder=await mutate(db=>{
+    if(!isAdmin(roleFor(db,s.email))||roleFor(db,s.email)!==s.role)throw err(403,'غير مصرح لك');
+    const target=db.folders.find(f=>f.id===input.id);
+    if(!target)throw err(404,'المجلد غير موجود');
+    if(db.folders.some(f=>f.id!==target.id&&f.parent===target.parent&&f.name.toLowerCase()===name.toLowerCase()))
+     throw err(409,'يوجد مجلد بهذا الاسم');
+    target.name=name;
+    return target;
+   });
+   return json(res,200,folder);
+  }
   if(route==='upload'&&req.method==='POST'){const d=await body(req,14*1024*1024),name=cleanName(d.name),parent=d.parent;if(typeof d.data!=='string'||!/^[A-Za-z0-9+/]*={0,2}$/.test(d.data))throw err(400,'Invalid file');const bytes=Buffer.from(d.data,'base64');if(!bytes.length||bytes.length>10*1024*1024)throw err(413,'Maximum 10 MB');const file=await mutate(async db=>{if(!db.folders.some(x=>x.id===parent))throw err(404,'Folder not found');const f={id:randomBytes(16).toString('hex'),name,parent,size:bytes.length};await storage('files/'+f.id+'.bin','PUT',seal(bytes));db.files.push(f);return f;});return json(res,201,file);}
   return json(res,404,{error:'Not found'});
  };
