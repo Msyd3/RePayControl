@@ -129,3 +129,21 @@ window.applyControlPermissions = role => {
     else if (!enabled) item.removeAttribute('href');
   }
 };
+
+
+const sidebarToggle = document.querySelector('.sidebar-toggle');
+if (sidebarToggle) {
+  const sidebar = sidebarToggle.closest('.control-sidebar');
+  const menuIsOpen = () => sidebarToggle.getAttribute('aria-expanded') === 'true';
+  const setMenuOpen = open => sidebarToggle.setAttribute('aria-expanded', String(open));
+  sidebarToggle.addEventListener('click', () => setMenuOpen(!menuIsOpen()));
+  document.addEventListener('click', event => {
+    if (menuIsOpen() && !sidebar.contains(event.target)) setMenuOpen(false);
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key !== 'Escape' || !menuIsOpen() || document.querySelector('dialog[open]')) return;
+    setMenuOpen(false);
+    sidebarToggle.focus();
+  });
+  matchMedia('(max-width: 760px)').addEventListener('change', () => setMenuOpen(false));
+}

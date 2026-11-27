@@ -6,12 +6,15 @@
 <div id="control-layout" class="control-layout" hidden>
 <aside class="control-sidebar">
   <img src="/assets/repay-logo.png" alt="RePay" width="52" height="52">
+  <button class="sidebar-toggle" type="button" aria-label="القائمة" aria-expanded="false" aria-controls="sidebar-panel"><span aria-hidden="true"></span></button>
+  <div id="sidebar-panel" class="sidebar-panel">
   <nav aria-label="أقسام ري باي">
     <a href="/" aria-current="page">الرئيسية</a>
     <a href="/dataroom/" data-roles="admin">غرفة البيانات</a>
     <button type="button" id="open-invites" data-roles="admin">الدعوات</button>
   </nav>
   <div class="sidebar-bottom"><button type="button" id="logout">تسجيل الخروج</button></div>
+  </div>
 </aside>
 <main id="app" hidden>
   <div class="page-title"><h1>نظرة عامة</h1><button id="export" class="primary export-button"><span aria-hidden="true">↓</span> تصدير PDF</button></div>
