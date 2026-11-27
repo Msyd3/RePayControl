@@ -1,3 +1,4 @@
+import { taroutStorage } from './tarout-storage.mjs';
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import { gzipSync, gunzipSync } from 'node:zlib';
 
@@ -8,18 +9,18 @@ const snapshotLimit = 2 * 1024 * 1024;
 export const storageUnavailable = () => Object.assign(new Error('تعذر حفظ البيانات؛ أعد المحاولة لاحقًا'), {status:503});
 
 export function taroutJournal(env, fetcher = fetch) {
-  const { TAROUT_BUCKET_ID, TAROUT_ACCESS_KEY, TAROUT_SECRET_KEY, SESSION_SECRET } = env;
-  if (!TAROUT_BUCKET_ID && !TAROUT_ACCESS_KEY && !TAROUT_SECRET_KEY) return null;
-  if (!/^[a-z0-9-]{12,80}$/.test(TAROUT_BUCKET_ID || '') || !TAROUT_ACCESS_KEY || !TAROUT_SECRET_KEY || (SESSION_SECRET || '').length < 32) {
+  const { SESSION_SECRET } = env;
+  const storage = taroutStorage(env, fetcher);
+  if (!storage && !env.TAROUT_BUCKET_ID && !env.TAROUT_ACCESS_KEY && !env.TAROUT_SECRET_KEY && !env.STORAGE_BUCKET) return null;
+  if (!storage || (SESSION_SECRET || '').length < 32) {
     throw new Error('Configure Tarout storage and the stable session secret');
   }
-  const bucket = new URL(`/api/storage/gateway/${TAROUT_BUCKET_ID}`, 'https://tarout.sa');
-  const headers = { Authorization:`Bearer ${TAROUT_ACCESS_KEY}:${TAROUT_SECRET_KEY}` };
+  const { bucket } = storage;
   const key = createHash('sha256').update('RePayControl Tarout journal v1\0' + SESSION_SECRET).digest();
 
   async function request(url, method, body, allowMissing=false) {
-    const response = await fetcher(url, {
-      method, headers:{...headers,...(body ? {'Content-Type':'application/octet-stream'} : {})}, body,
+    const response = await storage.request(url, {
+      method, headers:body ? {'Content-Type':'application/octet-stream'} : {}, body,
       redirect:'error', cache:'no-store', signal:AbortSignal.timeout(15000),
     });
     if (!response.ok && !(allowMissing && response.status===404)) throw storageUnavailable();

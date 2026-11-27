@@ -1,6 +1,6 @@
 # Data Room deployment
 The frontend requires a live API with the same origin or the existing configured API origin. Only m@repay.sa can create folders or upload files, after email OTP (admin exempt from NDA). Other emails must have an active invitation in the Data Room. All invited users currently share read permissions. No wallet data is accessed by this API.
-For the initial shared deployment, set `DATAROOM_STORAGE_MODE=shared` on RePay Control. The Data Room uses the existing private Tarout bucket and its `TAROUT_*` credentials, with all objects under `dataroom/`. Set a stable, independently generated `DATAROOM_ENCRYPTION_KEY` of at least 32 characters and back it up.
+For the initial shared deployment, set `DATAROOM_STORAGE_MODE=shared` on RePay Control. The Data Room uses the existing private Tarout bucket and its attached `STORAGE_*` settings or existing `TAROUT_*` credentials, with all objects under `dataroom/`. Set a stable, independently generated `DATAROOM_ENCRYPTION_KEY` of at least 32 characters and back it up.
 
 To move to a dedicated private bucket, pause writes, copy the complete `dataroom/` prefix to the new bucket, and verify that the copied objects match. Keep the same encryption key. Configure `DATAROOM_BUCKET_ID`, `DATAROOM_ACCESS_KEY`, and `DATAROOM_SECRET_KEY`, then set `DATAROOM_STORAGE_MODE=dedicated`. The dedicated bucket must differ from `TAROUT_BUCKET_ID`. Verify file downloads, invitations and NDA archives before resuming writes.
 

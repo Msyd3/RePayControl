@@ -12,7 +12,8 @@
     "check": "node --check src/server.mjs && node --check public/dashboard.js && node --check public/repay-control.js"
   },
   "dependencies": {
-    "pdfkit": "0.17.2",
-    "bidi-js": "1.0.3"
+    "aws4": "1.13.2",
+    "bidi-js": "1.0.3",
+    "pdfkit": "0.17.2"
   }
 }

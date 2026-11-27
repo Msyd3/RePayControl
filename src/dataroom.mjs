@@ -1,3 +1,4 @@
+import { taroutStorage } from './tarout-storage.mjs';
 import {createNdaPdf} from './nda-pdf.mjs';
 import {randomBytes,randomInt,createHmac,createCipheriv,createDecipheriv,createHash,timingSafeEqual} from 'node:crypto';
 const ADMIN='m@repay.sa', VERSION='NDA-v1';
@@ -8,21 +9,30 @@ export function createDataRoom(env,fetcher=fetch){
  const codes=new Map(),sessions=new Map(),limits=new Map();let serial=Promise.resolve();
  const sharedStorage = env.DATAROOM_STORAGE_MODE === 'shared';
  const dedicatedStorage = !env.DATAROOM_STORAGE_MODE || env.DATAROOM_STORAGE_MODE === 'dedicated';
- const bucketId = sharedStorage ? env.TAROUT_BUCKET_ID : env.DATAROOM_BUCKET_ID;
- const accessKey = sharedStorage ? env.TAROUT_ACCESS_KEY : env.DATAROOM_ACCESS_KEY;
- const secretKey = sharedStorage ? env.TAROUT_SECRET_KEY : env.DATAROOM_SECRET_KEY;
- const ready = () => Boolean(
-  (sharedStorage || (dedicatedStorage && bucketId !== env.TAROUT_BUCKET_ID)) &&
-  bucketId && accessKey && secretKey && env.DATAROOM_ENCRYPTION_KEY?.length >= 32 &&
-  env.DATAROOM_EMAIL_API_KEY && env.DATAROOM_FROM_EMAIL
- );
+ const sharedBucket = sharedStorage ? taroutStorage(env, fetcher) : null;
+ const dedicatedBucket = dedicatedStorage && env.DATAROOM_BUCKET_ID !== env.TAROUT_BUCKET_ID
+  ? taroutStorage({
+   TAROUT_BUCKET_ID: env.DATAROOM_BUCKET_ID,
+   TAROUT_ACCESS_KEY: env.DATAROOM_ACCESS_KEY,
+   TAROUT_SECRET_KEY: env.DATAROOM_SECRET_KEY,
+  }, fetcher)
+  : null;
+ const backend = sharedBucket || dedicatedBucket;
+ const ready = () => Boolean(backend && env.DATAROOM_ENCRYPTION_KEY?.length >= 32 &&
+  env.DATAROOM_EMAIL_API_KEY && env.DATAROOM_FROM_EMAIL);
  const roleFor=(db,email)=>{if(email===ADMIN)return 'owner';const i=db.invites[email];return i&&!i.revokedAt&&Date.parse(i.expiresAt)>Date.now()?i.role:null;};
  const isAdmin=role=>role==='owner'||role==='admin';
  const err=(status,message)=>Object.assign(new Error(message),{status});
  const key=()=>createHash('sha256').update(env.DATAROOM_ENCRYPTION_KEY).digest();
  function seal(buf){const iv=randomBytes(12),c=createCipheriv('aes-256-gcm',key(),iv);return Buffer.concat([iv,c.update(buf),c.final(),c.getAuthTag()]);}
  function open(buf){if(buf.length<28)throw err(503,'Storage unavailable');const d=createDecipheriv('aes-256-gcm',key(),buf.subarray(0,12));d.setAuthTag(buf.subarray(-16));return Buffer.concat([d.update(buf.subarray(12,-16)),d.final()]);}
- async function storage(name,method='GET',data){const url='https://tarout.sa/api/storage/gateway/'+encodeURIComponent(bucketId)+'/dataroom/'+name;const r=await fetcher(url,{method,headers:{Authorization:'Bearer '+accessKey+':'+secretKey,'Content-Type':'application/octet-stream'},body:data,redirect:'error',signal:AbortSignal.timeout(20000)});if(r.status===404&&method==='GET')return null;if(!r.ok)throw err(503,'Data room storage unavailable');return method==='GET'?open(Buffer.from(await r.arrayBuffer())):null;}
+ async function storage(name,method='GET',body){
+  const url = new URL(backend.bucket.href + '/dataroom/' + name);
+  const r = await backend.request(url,{method,headers:{'Content-Type':'application/octet-stream'},body,redirect:'error',signal:AbortSignal.timeout(20000)});
+  if(r.status===404&&method==='GET')return null;
+  if(!r.ok)throw err(503,'Data room storage unavailable');
+  return method==='GET'?open(Buffer.from(await r.arrayBuffer())):null;
+ }
  async function readIndex(){const b=await storage('index.bin');const db=b?JSON.parse(b.toString()):{folders:folders.map((name,i)=>({id:'root-'+(i+1),parent:null,name,number:i+1})),files:[],acceptances:{}};db.invites??={};if(!db.folders.some(f=>f.id===NDA_FOLDER))db.folders.push({id:NDA_FOLDER,parent:'root-3',name:'NDA',number:db.folders.filter(f=>f.parent==='root-3').length+1,private:true});return db;}
  function privateFolder(db,id){const seen=new Set();while(id){if(seen.has(id))return true;seen.add(id);const f=db.folders.find(x=>x.id===id);if(!f)return true;if(f.private||f.id===NDA_FOLDER)return true;id=f.parent;}return false;}
  async function mutate(fn){const work=serial.then(async()=>{const db=await readIndex(),result=await fn(db);await storage('index.bin','PUT',seal(Buffer.from(JSON.stringify(db))));return result;});serial=work.catch(()=>{});return work;}
