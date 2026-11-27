@@ -1,10 +1,10 @@
 'use strict';
 const names=['Registration','Business Info','Legal','Branding','Financial Data','Market','Product & Technology','PI','Partnerships','Marketing','HR','Legal','KPIs','Cap Table'];
 const $=id=>document.getElementById(id);
-const login=$('room-login'),app=$('room-app'),list=$('folder-list'),detail=$('folder-detail'),search=$('folder-search');
-function label(name,i){return String(i+1).padStart(2,'0')+' '+name;}
-function showList(){detail.hidden=true;list.hidden=false;search.focus();}
-function render(){const q=search.value.trim().toLowerCase();const grid=$('folders');grid.replaceChildren();let count=0;names.forEach((name,i)=>{const title=label(name,i);if(!title.toLowerCase().includes(q))return;count++;const b=document.createElement('button');b.type='button';b.className='room-folder';const ns='http://www.w3.org/2000/svg';const svg=document.createElementNS(ns,'svg');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');const p=document.createElementNS(ns,'path');p.setAttribute('fill','currentColor');p.setAttribute('d','M3 4h6l2 3h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z');svg.append(p);const t=document.createElement('span');t.dir='ltr';t.textContent=title;b.append(svg,t);b.addEventListener('click',()=>{list.hidden=true;detail.hidden=false;$('folder-title').textContent=title;$('folder-back').focus();});grid.append(b);});$('folder-count').textContent=count;$('no-results').hidden=count!==0;}
+const login=$('room-login'),app=$('room-app'),list=$('folder-list'),detail=$('folder-detail');
+function label(name,i){return String(i+1).padStart(2,'0')+' — '+name;}
+function showList(){detail.hidden=true;list.hidden=false;$('folders').querySelector('button')?.focus();}
+function render(){const grid=$('folders');grid.replaceChildren();let count=0;names.forEach((name,i)=>{const title=label(name,i);count++;const b=document.createElement('button');b.type='button';b.className='room-folder';const ns='http://www.w3.org/2000/svg';const svg=document.createElementNS(ns,'svg');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');const p=document.createElementNS(ns,'path');p.setAttribute('fill','currentColor');p.setAttribute('d','M3 4h6l2 3h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z');svg.append(p);const t=document.createElement('span');t.dir='ltr';t.textContent=title;b.append(svg,t);b.addEventListener('click',()=>{list.hidden=true;detail.hidden=false;$('folder-title').textContent=title;$('folder-back').focus();});grid.append(b);});$('folder-count').textContent=count;}
 $('room-form').addEventListener('submit',e=>{e.preventDefault();if(!$('email').checkValidity())return;$('room-email').textContent=$('email').value.trim();login.hidden=true;app.hidden=false;render();showList();});
-$('room-logout').addEventListener('click',()=>{app.hidden=true;login.hidden=false;$('room-email').textContent='';$('email').value='';search.value='';$('email').focus();});
-search.addEventListener('input',render);$('folder-back').addEventListener('click',showList);
+$('room-logout').addEventListener('click',()=>{app.hidden=true;login.hidden=false;$('room-email').textContent='';$('email').value='';$('email').focus();});
+$('folder-back').addEventListener('click',showList);
