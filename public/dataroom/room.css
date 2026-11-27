@@ -40,3 +40,16 @@
 #viewer-content img{display:block;max-width:100%;max-height:72vh;margin:auto}
 #viewer-content pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;line-height:1.75}
 @media(max-width:520px){.room-files{grid-template-columns:1fr}}
+
+
+.folder-toolbar{display:flex;align-items:center;justify-content:space-between;gap:6px;margin:0 0 16px}
+.folder-toolbar .room-admin-tools{margin:0;gap:6px;flex-wrap:nowrap;margin-inline-start:auto}
+.folder-toolbar button{white-space:nowrap}
+.folder-toolbar .primary{min-height:36px;padding:6px 10px;font-size:12px}
+.folder-toolbar .room-add-folder{padding-inline:8px}
+.room-action-status{font-size:12px;color:#666}
+.room-action-status:empty{display:none}
+#folder-empty{padding:32px 0;margin:0}
+@media(max-width:380px){
+ .folder-toolbar .primary,.folder-toolbar .room-add-folder{padding-inline:6px;font-size:11px}
+}
