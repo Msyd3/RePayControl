@@ -11,7 +11,7 @@ for (const storageMode of ['shared', 'dedicated', 'attached']) test(storageMode 
   Object.assign(env,{STORAGE_ENDPOINT:'https://s3.example.com',STORAGE_BUCKET:'attached-bucket',STORAGE_ACCESS_KEY_ID:'attached-key',STORAGE_SECRET_ACCESS_KEY:'secret'});
  }
  const fetcher=async(url,options)=>{if(String(url).includes('resend.com')){const d=JSON.parse(options.body);codes.set(d.to[0],d.text.match(/\d{6}/)[0]);return new Response('{}');}const k=String(url);const shared=storageMode==='shared';if(storageMode==='attached'){assert.ok(k.startsWith('https://s3.example.com/attached-bucket/dataroom/'));assert.match(options.headers.Authorization,/^AWS4-HMAC-SHA256 Credential=attached-key\//);}else{assert.ok(new URL(k).pathname.startsWith('/api/storage/gateway/'+(shared?'control-bucket':'private-room-bucket')+'/dataroom/'));assert.equal(options.headers.Authorization,shared?'Bearer control:secret':'Bearer test:test');}if(options.method==='PUT'){objects.set(k,Buffer.from(options.body));return new Response('');}return objects.has(k)?new Response(objects.get(k)):new Response('',{status:404});};
- const handle=createDataRoom(env,fetcher);
+ let handle=createDataRoom(env,fetcher);
  async function call(route,data,token){const req=Readable.from(data===undefined?[]:[Buffer.from(JSON.stringify(data))]);req.method=data===undefined?'GET':'POST';req.headers={authorization:token?'Bearer '+token:''};req.socket={remoteAddress:'test'};let result;const res={writeHead(status,headers){result={status,headers}},end(body){result.body=body;}};try{await handle(req,res,new URL('https://test/api/dataroom/'+route),(_,status,body)=>{result={status,body};},()=>true);}catch(e){result={status:e.status||500,body:e.message};}return result;}
  async function login(email){assert.equal((await call('request-code',{email})).status,200);const r=await call('verify-code',{email,code:codes.get(email)});assert.equal(r.status,200);return r.body;}
  const admin=await login('m@repay.sa');assert.equal(admin.needsNda,false);assert.equal((await call('list',undefined,admin.token)).status,200);
@@ -21,5 +21,14 @@ for (const storageMode of ['shared', 'dedicated', 'attached']) test(storageMode 
  const a=await call('list',undefined,admin.token);const f=a.body.files.find(x=>x.name.endsWith('.pdf'));assert.ok(f);assert.equal(f.parent,'private-nda');
  const pdf=await call('download?id='+f.id,undefined,admin.token);assert.equal(pdf.status,200);assert.equal(pdf.body.subarray(0,5).toString(),'%PDF-');
  const u=await call('list',undefined,user.token);assert.equal(u.body.files.length,0);assert.ok(!u.body.folders.some(x=>x.id==='private-nda'));assert.equal((await call('download?id='+f.id,undefined,user.token)).status,404);
- const again=await login('investor@example.com');assert.equal(again.needsNda,false);assert.equal((await call('accept',{name:'Changed',agree:true,version:'NDA-v1'},again.token)).body.name,'Investor Test');assert.equal((await call('list',undefined,admin.token)).body.files.length,1);
+ const bytes=Buffer.from('Investor presentation');
+ const uploaded=await call('upload',{name:'Presentation.txt',parent:'root-2',data:bytes.toString('base64')},admin.token);
+ assert.equal(uploaded.status,201);
+ handle=createDataRoom(env,fetcher);
+ const newAdmin=await login('m@repay.sa');
+ const restored=await call('list',undefined,newAdmin.token);
+ assert.equal(restored.body.files.length,2);
+ const document=await call('download?id='+uploaded.body.id,undefined,newAdmin.token);
+ assert.deepEqual(document.body,bytes);
+ const again=await login('investor@example.com');assert.equal(again.needsNda,false);assert.equal((await call('accept',{name:'Changed',agree:true,version:'NDA-v1'},again.token)).body.name,'Investor Test');assert.equal((await call('list',undefined,newAdmin.token)).body.files.length,2);
 });

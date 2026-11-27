@@ -8,7 +8,7 @@ if(url&&url.hostname==='control.repay.sa')throw Error('The GitHub Pages hostname
 await mkdir('dist-pages',{recursive:true});await cp('public','dist-pages',{recursive:true});
 let html=await readFile('public/index.html','utf8');html=html.replace(/(src|href)="\//g,'$1="./');
 const css=(await readFile('public/styles.css','utf8')).replaceAll("url('/","url('./");await writeFile('dist-pages/styles.css',css);
-await writeFile('dist-pages/runtime-config.js',`window.REPAY_CONTROL_API_ORIGIN=${JSON.stringify(url?.origin||'')};\nwindow.REPAY_CONTROL_FRONTEND_ONLY=${!url};\n`);
+await writeFile('dist-pages/runtime-config.js',`window.REPAY_CONTROL_API_ORIGIN=${JSON.stringify(url?.origin||'')};\nwindow.REPAY_DATAROOM_API_ORIGIN="https://repaycontrol-trlhqd.tarout.app";\nwindow.REPAY_CONTROL_FRONTEND_ONLY=${!url};\n`);
 for(const file of ['dashboard.js','export-pdf.js','runtime-config.js','styles.css']){
   const content=await readFile('dist-pages/'+file);
   const version=createHash('sha256').update(content).digest('hex').slice(0,12);

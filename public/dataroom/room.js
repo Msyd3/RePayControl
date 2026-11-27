@@ -1,6 +1,6 @@
 'use strict';
 const $=id=>document.getElementById(id),login=$('room-login'),app=$('room-app'),nda=$('room-nda'),agree=$('nda-agree'),next=$('nda-continue');
-const origin=window.REPAY_CONTROL_API_ORIGIN||'';
+const origin=window.REPAY_DATAROOM_API_ORIGIN??window.REPAY_CONTROL_API_ORIGIN??'';
 let email='',token='',admin=false,db={folders:[],files:[]},current=null;
 async function api(route,data){const r=await fetch(origin+'/api/dataroom/'+route,{method:data===undefined?'GET':'POST',headers:{...(token?{Authorization:'Bearer '+token}:{}),...(data===undefined?{}:{'Content-Type':'application/json'})},body:data===undefined?undefined:JSON.stringify(data),credentials:'omit',cache:'no-store'});if(!r.ok){let d={};try{d=await r.json()}catch{}throw Error(d.error||'تعذر الاتصال');}return r.json();}
 async function busy(form,fn,status){const b=form.querySelector('button');b.disabled=true;$(status).textContent='';try{await fn()}catch(e){$(status).textContent=e.message}finally{b.disabled=false;if(form.id==='nda-form')updateNda()}}
