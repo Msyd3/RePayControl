@@ -166,7 +166,7 @@ $('#avatar-options').addEventListener('click',async event=>{
   }
 });
 $('#refresh').addEventListener('click',load);
-$('#password').addEventListener('input',e=>{e.target.value=e.target.value.replace(/[٠-٩]/g,c=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(c))).replace(/[۰-۹]/g,c=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(c)));});
+window.setupControlInvitations((route,data)=>api('/api/dataroom/'+route,data===undefined?undefined:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}));
 $('#logout').addEventListener('click',async()=>{
  try{await api('/api/dataroom/logout',{method:'POST'});}
  catch(error){toast(error.message);}

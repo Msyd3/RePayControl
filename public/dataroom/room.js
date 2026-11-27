@@ -49,6 +49,8 @@ async function logout() {
 }
 
 $('room-logout').onclick = logout;
+$('sidebar-logout').onclick = logout;
+window.setupControlInvitations(api);
 $('nda-decline').onclick = logout;
 $('nda-form').onsubmit = async event => {
   event.preventDefault();
@@ -75,11 +77,13 @@ async function openRoom() {
   db = await api('list');
   $('room-email').textContent = session.email;
   $('room-name').textContent = session.name;
-  $('control-link').hidden = !db.admin;
+  $('room-layout').classList.toggle('control-layout', db.admin);
+  $('room-sidebar').hidden = !db.admin;
+  $('room-header').hidden = db.admin;
   nda.hidden = true;
   app.hidden = false;
   show(null);
-  if (db.admin && location.hash === '#invites') await openInvites();
+
 }
 
 function menu(kind, item) {
@@ -270,54 +274,6 @@ $('file-input').onchange = event => {
     });
     return api('upload', {name: file.name, parent, data});
   });
-};
-
-const roleLabels = {dataroom: 'الداتا روم', viewer: 'عرض الكنترول', admin: 'أدمن'};
-const statusLabels = {Pending: 'بانتظار الدخول', Active: 'سارية', Expired: 'منتهية', Revoked: 'ملغاة'};
-
-async function openInvites() {
-  const dialog = $('room-invites');
-  if (!dialog.open) dialog.showModal();
-  try {
-    const {invites} = await api('invites');
-    $('invite-list').replaceChildren(...invites.map(invite => {
-      const row = document.createElement('li');
-      const label = document.createElement('span');
-      label.textContent = [invite.email, roleLabels[invite.role], statusLabels[invite.status]].join(' · ');
-      row.append(label);
-      if (['Pending', 'Active'].includes(invite.status)) {
-        const revoke = document.createElement('button');
-        revoke.type = 'button';
-        revoke.textContent = 'إلغاء الوصول';
-        revoke.onclick = async () => {
-          if (!confirm('إلغاء وصول ' + invite.email + '؟')) return;
-          try { await api('revoke', {email: invite.email}); await openInvites(); }
-          catch (error) { $('invite-status').textContent = error.message; }
-        };
-        row.append(revoke);
-      }
-      return row;
-    }));
-  } catch (error) {
-    $('invite-status').textContent = error.message;
-  }
-}
-
-$('invite-form').onsubmit = async event => {
-  event.preventDefault();
-  const form = event.target;
-  const button = form.querySelector('button');
-  button.disabled = true;
-  try {
-    await api('invite', Object.fromEntries(new FormData(form)));
-    form.reset();
-    $('invite-status').textContent = 'تم حفظ الدعوة';
-    await openInvites();
-  } catch (error) {
-    $('invite-status').textContent = error.message;
-  } finally {
-    button.disabled = false;
-  }
 };
 
 (async () => {
