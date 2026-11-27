@@ -1,4 +1,5 @@
 import http from 'node:http';
+import {createDataRoom} from './dataroom.mjs';
 import { readFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -16,6 +17,7 @@ const publicDir=fileURLToPath(new URL('../public/',import.meta.url));
 function equal(a,b){const hash=x=>createHmac('sha256','repay-control-constant-compare').update(String(x||'')).digest();return timingSafeEqual(hash(a),hash(b));}
 function csv(rows){return '\ufeff'+rows.map(row=>row.map(v=>{let s=String(v??'');if(/^[=+@\-\t\r]/.test(s))s="'"+s;return '"'+s.replaceAll('"','""')+'"';}).join(',')).join('\r\n');}
 export function createApp({env=process.env,store,fetcher=fetch,journal=null}={}){
+  const dataRoom=createDataRoom(env,fetcher);
   const readGoogle=googleAnalytics(env,fetcher);
   function backedReport(kind,readSource,accept){
     let saved;
@@ -90,6 +92,7 @@ export function createApp({env=process.env,store,fetcher=fetch,journal=null}={})
     const remote=req.socket.remoteAddress||'unknown';
     const sameOrigin=()=>{if(!origin)return false;if(env.ADMIN_FRONTEND_ORIGIN&&origin===env.ADMIN_FRONTEND_ORIGIN)return true;try{return new URL(origin).host===req.headers.host;}catch{return false;}};
     try{
+      if(url.pathname.startsWith('/api/dataroom/'))return await dataRoom(req,res,url,json,sameOrigin);
       if(url.pathname==='/health')return json(res,200,{status:'ok'});
       if(url.pathname==='/api/wallet/avatars'){
         if(!origins.wallet.includes(origin))return json(res,403,{error:'Origin not allowed'});
