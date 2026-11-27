@@ -1,18 +1,52 @@
 'use strict';
-const names=['Registration','Business Info','Legal','Branding','Financial Data','Market','Product & Technology','PI','Partnerships','Marketing','HR','Legal','KPIs','Cap Table'];
-const $=id=>document.getElementById(id);
-const login=$('room-login'),app=$('room-app'),list=$('folder-list'),detail=$('folder-detail');
-function label(name,i){return String(i+1).padStart(2,'0')+' — '+name;}
-function showList(){detail.hidden=true;list.hidden=false;app.classList.remove('room-detail-mode');$('folders').querySelector('button')?.focus();}
-function render(){const grid=$('folders');grid.replaceChildren();let count=0;names.forEach((name,i)=>{const title=label(name,i);count++;const b=document.createElement('button');b.type='button';b.className='room-folder';const ns='http://www.w3.org/2000/svg';const svg=document.createElementNS(ns,'svg');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');const p=document.createElementNS(ns,'path');p.setAttribute('fill','currentColor');p.setAttribute('d','M3 4h6l2 3h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z');svg.append(p);const t=document.createElement('span');t.dir='ltr';t.textContent=name;b.append(svg,t);b.setAttribute('aria-label',title);const item=document.createElement('div');item.className='room-grid-item';const number=document.createElement('span');number.className='room-folder-number';number.textContent=String(i+1).padStart(2,'0');item.append(number,b);b.addEventListener('click',()=>{list.hidden=true;detail.hidden=false;app.classList.add('room-detail-mode');$('folder-title').textContent=title;$('folder-back').focus();});grid.append(item);});$('folder-count').textContent=count;}
-// Preview only: no confidential documents or server-side authorization.
-const agreement = 'NDA-v1';
-const nda=$('room-nda'), agree=$('nda-agree'), next=$('nda-continue');
-let pendingEmail='';
-function resetAccess(){pendingEmail='';app.hidden=true;nda.hidden=true;login.hidden=false;$('room-email').textContent='';$('room-name').textContent='';$('email').value='';$('nda-name').value='';$('nda-email').value='';agree.checked=false;agree.disabled=!agreement;next.disabled=true;$('email').focus();}
-function updateNda(){next.disabled=!agreement||!pendingEmail||!$('nda-name').value.trim()||!agree.checked;}
-$('room-form').addEventListener('submit',e=>{e.preventDefault();if(!$('email').checkValidity())return;pendingEmail=$('email').value.trim();$('nda-email').value=pendingEmail;login.hidden=true;app.hidden=true;nda.hidden=false;agree.disabled=!agreement;updateNda();$('nda-name').focus();});
+const $=id=>document.getElementById(id),login=$('room-login'),app=$('room-app'),nda=$('room-nda'),agree=$('nda-agree'),next=$('nda-continue');
+const origin=window.REPAY_DATAROOM_API_ORIGIN??window.REPAY_CONTROL_API_ORIGIN??'';
+let email='',token='',admin=false,db={folders:[],files:[]},current=null;
+async function api(route,data){const r=await fetch(origin+'/api/dataroom/'+route,{method:data===undefined?'GET':'POST',headers:{...(token?{Authorization:'Bearer '+token}:{}),...(data===undefined?{}:{'Content-Type':'application/json'})},body:data===undefined?undefined:JSON.stringify(data),credentials:'omit',cache:'no-store'});if(!r.ok){let d={};try{d=await r.json()}catch{}throw Error(d.error||'تعذر الاتصال');}return r.json();}
+async function busy(form,fn,status){const b=form.querySelector('button');b.disabled=true;$(status).textContent='';try{await fn()}catch(e){$(status).textContent=e.message}finally{b.disabled=false;if(form.id==='nda-form')updateNda()}}
+function updateNda(){next.disabled=!token||!agree.checked||!$('nda-name').value.trim();}
+async function signIn(password){
+ const result=await api('login',{email,password});
+ if(result.requiresPassword){
+  $('room-form').hidden=true;
+  $('password-form').hidden=false;
+  $('room-password').focus();
+  return;
+ }
+ token=result.token;
+ admin=result.admin;
+ if(!result.needsNda){await enterRoom(result.name);return;}
+ login.hidden=true;
+ nda.hidden=false;
+ $('nda-email').value=email;
+ $('nda-name').focus();
+ updateNda();
+}
+$('room-form').addEventListener('submit',event=>{
+ event.preventDefault();
+ email=$('email').value.trim().toLowerCase();
+ void busy(event.target,()=>signIn(),'login-status');
+});
+$('room-password').addEventListener('input',event=>{
+ const input=event.target;
+ input.value=input.value
+  .replace(/[٠-٩]/g,digit=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)))
+  .replace(/[۰-۹]/g,digit=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)));
+});
+$('password-form').addEventListener('submit',event=>{
+ event.preventDefault();
+ void busy(event.target,()=>signIn($('room-password').value),'password-status');
+});
 $('nda-name').addEventListener('input',updateNda);agree.addEventListener('change',updateNda);
-$('nda-form').addEventListener('submit',e=>{e.preventDefault();if(!agreement||!pendingEmail||!agree.checked||!$('nda-name').value.trim()||!e.target.checkValidity())return;$('room-email').textContent=pendingEmail;$('room-name').textContent=$('nda-name').value.trim();nda.hidden=true;app.hidden=false;render();showList();});
-$('nda-decline').addEventListener('click',resetAccess);$('room-logout').addEventListener('click',resetAccess);
-$('folder-back').addEventListener('click',showList);
+$('nda-form').addEventListener('submit',e=>{e.preventDefault();if(next.disabled)return;busy(e.target,async()=>{const r=await api('accept',{name:$('nda-name').value.trim(),agree:true,version:'NDA-v1'});await enterRoom(r.name)},'nda-status')});
+async function reset(){try{if(token)await api('logout',{})}catch{}token='';email='';admin=false;db={folders:[],files:[]};current=null;app.hidden=true;nda.hidden=true;login.hidden=false;$('room-form').hidden=false;$('password-form').hidden=true;for(const id of ['email','room-password','nda-name','nda-email'])$(id).value='';agree.checked=false;updateNda();}
+$('nda-decline').addEventListener('click',reset);$('room-logout').addEventListener('click',reset);
+async function enterRoom(name){await refresh();$('room-email').textContent=email;$('room-name').textContent=name;login.hidden=true;nda.hidden=true;app.hidden=false;show(null);}
+async function refresh(){db=await api('list');admin=db.admin;}
+function folderCard(f){const item=document.createElement('div');item.className='room-grid-item';const n=document.createElement('span');n.className='room-folder-number';n.textContent=String(f.number).padStart(2,'0');const b=document.createElement('button');b.type='button';b.className='room-folder';const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');const p=document.createElementNS(svg.namespaceURI,'path');p.setAttribute('fill','currentColor');p.setAttribute('d','M3 4h6l2 3h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z');svg.append(p);const t=document.createElement('span');t.dir='auto';t.textContent=f.name;b.append(svg,t);b.onclick=()=>show(f.id);item.append(n,b);return item;}
+function show(id){current=id;const root=id===null;const children=db.folders.filter(f=>f.parent===id);$('folder-list').hidden=!root;$('folder-detail').hidden=root;app.classList.toggle('room-detail-mode',!root);$('room-admin-tools').hidden=!admin;$('upload-file').hidden=root;$(root?'folders':'nested-folders').replaceChildren(...children.map(folderCard));$('folder-count').textContent=db.folders.filter(f=>f.parent===null).length;if(root)return;const f=db.folders.find(f=>f.id===id);$('folder-title').textContent=f.name;const files=db.files.filter(x=>x.parent===id);const panel=$('folder-files');panel.replaceChildren();if(!files.length){const p=document.createElement('p');p.className='room-empty';p.textContent='لا توجد مستندات حتى الآن';panel.append(p);}for(const file of files){const b=document.createElement('button');b.className='room-file';b.textContent=file.name;b.onclick=async()=>{try{const r=await fetch(origin+'/api/dataroom/download?id='+encodeURIComponent(file.id),{headers:{Authorization:'Bearer '+token},credentials:'omit',cache:'no-store'});if(!r.ok)throw Error('تعذر تنزيل الملف');const u=URL.createObjectURL(await r.blob());const a=document.createElement('a');a.href=u;a.download=file.name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);}catch(e){alert(e.message)}};panel.append(b);}}
+$('folder-back').onclick=()=>show(db.folders.find(f=>f.id===current)?.parent??null);
+async function change(fn){$('admin-status').textContent='جارٍ الحفظ';try{await fn();await refresh();show(current);$('admin-status').textContent='تم الحفظ'}catch(e){$('admin-status').textContent=e.message}}
+$('new-folder').onclick=()=>{const name=prompt('اسم المجلد');if(name?.trim())change(()=>api('folder',{name,parent:current}));};
+$('upload-file').onclick=()=>$('file-input').click();
+$('file-input').onchange=async e=>{const f=e.target.files[0],parent=current;e.target.value='';if(!f||!parent)return;if(f.size>10*1024*1024){$('admin-status').textContent='الحد الأقصى 10 MB';return;}await change(async()=>{const data=await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(String(r.result).split(',')[1]);r.onerror=no;r.readAsDataURL(f)});await api('upload',{name:f.name,parent,data})});};
