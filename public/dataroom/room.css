@@ -3,7 +3,8 @@
 .room-summary{display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid var(--border);padding-bottom:20px}.room-summary .room-title{margin:0}.room-summary .room-identity{align-items:flex-end;text-align:left;border:0;padding:0;min-width:0}.room-grid-item{display:flex;align-items:center;gap:10px;min-width:0}.room-folder-number{flex:none;font-size:13px;color:#888;font-variant-numeric:tabular-nums;direction:ltr}.room-grid-item .room-folder{min-width:0;flex:1}.room-folder span{text-align:left}.room-detail-mode .room-summary,.room-detail-mode #room-logout{display:none}.room-detail-mode .room-header{margin-bottom:12px}@media(max-width:520px){.room-summary{gap:10px}.room-summary .room-note{font-size:9px}.room-summary #room-email{font-size:10px}.room-summary .room-user-name{font-size:11px}.room-grid-item{gap:5px}.room-folder-number{font-size:11px}.room-grid-item .room-folder{padding:10px 8px;gap:6px}}
 .nda-card{width:100%;max-width:720px;background:#fff;border:1px solid #e5e5e5;border-radius:12px;padding:32px 36px}.nda-card .login-logo{margin-bottom:20px}.nda-card h1{font-size:24px;text-align:center;margin:0 0 8px}.nda-card>p{text-align:center}.nda-document{background:#fafafa;border:1px solid #e7e7e7;border-radius:8px;padding:20px;margin:24px 0;min-height:120px;max-height:420px;overflow:auto;font-size:13px;line-height:1.9;white-space:pre-wrap}.nda-card form>label:not(.nda-consent){display:block;font-size:12px;margin:15px 0 8px}.nda-card input:not([type=checkbox]){width:100%;padding:12px;border:1px solid #ddd;border-radius:6px;font-size:14px}.nda-card input[readonly]{background:#fafafa}.nda-consent{display:flex;align-items:center;gap:10px;margin:20px 0;font-size:12px}.nda-consent input{width:17px;height:17px;accent-color:#111}.nda-card .primary,.nda-decline{width:100%}.nda-decline{background:none;border:0;color:#777;padding:14px;font-size:12px}.nda-card button:disabled{cursor:not-allowed}@media(max-width:520px){.nda-card{padding:24px 18px}.nda-card h1{font-size:20px}}
 .room-admin-tools{display:flex;gap:10px;align-items:center;margin:18px 0;flex-wrap:wrap}.room-admin-tools span{font-size:12px;color:#666}.room-files{margin-top:18px}.room-file{display:block;width:100%;text-align:right;border:0;border-bottom:1px solid #e7e7e7;background:white;padding:16px;font-size:14px}.room-file:last-child{border-bottom:0}#password-form[hidden]{display:none}
-.room-folder-card{position:relative;min-width:0;background:#ededed;border-radius:16px}
+.room-folder-card{position:relative;min-width:0;background:#dedede;border-radius:16px}
+.room-folder-card.room-file-card{background:#f1f1f1}
 .room-folder-card{display:flex;align-items:center;gap:2px;padding-inline-end:6px}
 .room-folder-card .room-folder{flex:1;min-width:0;background:none;border:0;padding:12px 8px 12px 4px;gap:8px}
 .room-folder .folder-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:start}
@@ -30,11 +31,14 @@
 .file-menu-actions button{background:transparent;border:0;padding:8px;white-space:nowrap;text-align:start;border-radius:5px}
 .file-menu-actions button:hover{background:#ededed}
 .room-folder .file-type{flex:none}
-.room-dialog{border:1px solid #e1e1e1;border-radius:16px;width:min(920px,94vw);max-height:90vh;padding:18px}
+.room-dialog{border:1px solid #e1e1e1;border-radius:16px;width:min(920px,calc(100vw - 24px));max-height:calc(100dvh - 24px);padding:clamp(12px,3vw,18px);overflow-x:hidden}
 .room-dialog::backdrop{background:#24242470}
 .room-dialog header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:14px}
-.room-dialog h2{margin:0;overflow-wrap:anywhere}
-#viewer-content iframe{width:100%;height:72vh;border:0}
+.room-dialog h2{margin:0;min-width:0;overflow-wrap:anywhere;font-size:clamp(16px,4vw,22px)}
+.room-dialog .invite-close{display:grid;place-items:center;width:44px;height:44px;border:0;border-radius:8px;background:#ededed;color:#343434;font:26px/1 Arial,sans-serif}
+.room-dialog header form{flex:none}
+#viewer-content{width:100%;min-width:0;overflow-wrap:anywhere}
+#viewer-content iframe{display:block;width:100%;height:72dvh;border:0}
 #viewer-content img{display:block;max-width:100%;max-height:72vh;margin:auto}
 #viewer-content pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;line-height:1.75}
 

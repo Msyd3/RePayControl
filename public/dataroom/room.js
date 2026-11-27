@@ -170,7 +170,7 @@ async function preview(file, target, active) {
 
 function fileCard(file) {
   const card = document.createElement('article');
-  card.className = 'room-folder-card';
+  card.className = 'room-folder-card room-file-card';
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'room-folder';
