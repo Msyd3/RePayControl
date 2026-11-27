@@ -129,6 +129,7 @@
  .sidebar-panel{display:none;position:absolute;inset-block-start:100%;inset-inline-start:12px;width:min(250px,calc(100vw - 24px));padding:10px;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:0 6px 18px #0002}
  .sidebar-toggle[aria-expanded=true]+.sidebar-panel{display:flex}
  .sidebar-bottom{margin:10px 0 0;padding:8px 0 0;border-top:1px solid var(--border)}
+ #room-admin-nav[hidden]+.sidebar-bottom{margin:0;padding:0;border-top:0}
 }
 
 @media(max-width:600px){
