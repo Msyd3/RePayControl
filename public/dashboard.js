@@ -62,13 +62,13 @@ function sections(report){
   ]:[];
   const issues=project=>({title:'الأخطاء وأسباب الفشل اليوم',rows:report.issues.filter(issue=>issue.project===project),markup:issuesTable});
   return [
-    {title:'المستخدمون',scope:'منذ بدء تسجيل المحادثات',metrics:pocMetrics,
-      empty:snapshot?.message||'بيانات واتساب غير متاحة حاليًا.',
-      tables:[{rows:sortedUsers(snapshot?.users||[]),markup:pocUsersTable},issues('poc')]},
     {title:'بيانات القياس',layout:'measurement',scope:google?.from?`Google Analytics · منذ ${google.from}`:'Google Analytics',
       metrics:googleMetrics,empty:google?.state==='error'?'تعذر تحديث بيانات Google Analytics.':'بانتظار ربط مصدر بيانات Google Analytics.',
       notes:google?.stale?['تعذر التحديث. الأرقام المعروضة من آخر قراءة ناجحة.']:[],
-      tables:[issues('business')]}
+      tables:[issues('business')]},
+    {title:'المستخدمون',scope:'منذ بدء تسجيل المحادثات',metrics:pocMetrics,
+      empty:snapshot?.message||'بيانات واتساب غير متاحة حاليًا.',
+      tables:[{rows:sortedUsers(snapshot?.users||[]),markup:pocUsersTable},issues('poc')]}
   ];
 }
 function sectionIntro(section){
@@ -84,7 +84,6 @@ function render(){
     section.tables.filter(t=>t.rows.length||t.empty).map(t=>sectionTable(t,t.rows)).join('')
   }</section>`).join('');
   $('#sync-status').textContent='تم التحديث';
-  $('#updated-at').textContent='آخر تحديث '+timestampFormat.format(new Date(state.report.updatedAt));
 }
 function toast(message){$('#toast').textContent=message;$('#toast').hidden=false;setTimeout(()=>$('#toast').hidden=true,4000);}
 function login(){state.authenticated=false;$('#app').hidden=true;$('#control-layout').hidden=true;$('#login-screen').hidden=false;}
@@ -178,7 +177,7 @@ $('#export').addEventListener('click',async()=>{if(!state.report||state.exportin
  try{
   const me=await api('/api/me');
   readOnly=me.role==='viewer';
-  document.querySelectorAll('[data-admin-link]').forEach(link=>{link.hidden=readOnly;});
+  window.applyControlPermissions(readOnly?'viewer':'admin');
   $('#app').classList.toggle('read-only',readOnly);
   $('#export').hidden=readOnly;
   state.authenticated=true;

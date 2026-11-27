@@ -49,7 +49,9 @@
 .user-with-avatar{display:inline-flex;align-items:center;gap:8px}
 .user-avatar{display:block;width:32px;height:32px;object-fit:contain}
 .avatar-trigger,.avatar-options button{border:1px solid transparent;background:#f6f6f6;border-radius:8px;padding:2px}
-.avatar-trigger:hover,.avatar-options button:hover,.avatar-options button[aria-pressed=true]{border-color:#171717}
+.avatar-trigger:hover,.avatar-options button:hover{background:#e8e8e8}
+.avatar-options button[aria-pressed=true]{background:#e4e4e4}
+.avatar-options button:focus-visible{outline:2px solid #818181;outline-offset:2px}
 #avatar-picker{max-width:calc(100% - 24px);width:350px;border:1px solid var(--border);border-radius:12px;padding:20px;color:#171717}
 #avatar-picker::backdrop{background:#0006}
 #avatar-picker h2{font-size:18px;margin:0 0 16px}
@@ -64,7 +66,9 @@
 .control-sidebar img{display:block;margin:0 0 24px}
 .control-sidebar nav{display:grid;gap:6px}
 .control-sidebar nav a,.control-sidebar button{display:block;color:#242c39;text-decoration:none;text-align:start;padding:9px 10px;border:0;background:none;border-radius:8px}
-.control-sidebar nav a:hover,.control-sidebar button:hover,.control-sidebar nav a[aria-current]{background:#edf4fc;color:#13598e}
+.control-sidebar nav a:not([aria-disabled=true]):hover,.control-sidebar button:not(:disabled):hover,.control-sidebar nav a[aria-current]{background:#ededed;color:#282828}
+.control-sidebar [aria-disabled=true]{color:#929292;cursor:default;opacity:1}
+.control-sidebar [aria-disabled=true]:hover{background:none}
 .sidebar-bottom{margin-top:auto;padding-top:20px;display:grid;gap:6px;color:#606976;font-size:12px}
 .sidebar-bottom button{font-size:14px}
 .read-only [data-avatar-user]{pointer-events:none}
