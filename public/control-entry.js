@@ -70,7 +70,8 @@ window.setupControlInvitations = api => {
   const $ = id => document.getElementById(id);
 
   const roleLabels = {dataroom: 'البيانات', viewer: 'متصفح', admin: 'مدير'};
-  const expiryFormat = new Intl.DateTimeFormat('ar-SA', {calendar: 'gregory', timeZone: 'Asia/Riyadh', dateStyle: 'short'});
+  const expiryFormat = new Intl.DateTimeFormat('en-GB', {numberingSystem: 'latn', timeZone: 'Asia/Riyadh', day: '2-digit', month: '2-digit', year: 'numeric'});
+  const defaultMessage = 'مرحبًا،\n\nتمت دعوتك إلى منصة ري باي. افتح الرابط وسجّل دخولك بالبريد الإلكتروني نفسه:\nhttps://control.repay.sa/\n\nفريق ري باي';
   const statusLabels = {Invited: 'دعوة', Pending: 'انتظار', Accepted: 'قبول', Active: 'قبول', Expired: 'منتهية', Revoked: 'ملغاة'};
 
   async function openInvites() {
@@ -96,17 +97,35 @@ window.setupControlInvitations = api => {
           expiryLabel.textContent = 'ينتهي ' + expiryFormat.format(expiry);
           identity.append(expiryLabel);
         }
-        row.append(identity);
+        const heading = document.createElement('div');
+        heading.className = 'invite-row-heading';
+        heading.append(identity);
+        row.append(heading);
 
         if (invite.editable === false || ['Expired', 'Revoked'].includes(invite.status)) {
           const role = document.createElement('span');
           role.textContent = roleLabels[invite.role];
-          row.append(role);
+          heading.append(role);
           return row;
         }
 
         const actions = document.createElement('div');
         actions.className = 'invite-actions';
+        actions.hidden = true;
+        const menu = document.createElement('details');
+        menu.className = 'invite-menu';
+        const summary = document.createElement('summary');
+        summary.setAttribute('aria-label', 'خيارات ' + invite.email);
+        summary.textContent = '⋯';
+        const choices = document.createElement('div');
+        choices.className = 'invite-menu-items';
+        menu.append(summary, choices);
+        heading.append(menu);
+        menu.addEventListener('toggle', () => {
+          if (menu.open) row.parentElement?.querySelectorAll('.invite-menu[open]').forEach(other => {
+            if (other !== menu) other.open = false;
+          });
+        });
         const select = document.createElement('select');
         select.setAttribute('aria-label', 'صلاحية ' + invite.email);
         for (const [value, label] of Object.entries(roleLabels)) {
@@ -127,8 +146,9 @@ window.setupControlInvitations = api => {
         const save = document.createElement('button');
         save.type = 'button';
         save.textContent = 'حفظ';
-        save.disabled = true;
-        const updateSave = () => { save.disabled = select.value === invite.role && !duration.value; };
+        const hasAccessChanges = () => select.value !== invite.role || Boolean(duration.value);
+        const updateSave = () => { save.disabled = !hasAccessChanges(); };
+        updateSave();
         select.onchange = duration.onchange = updateSave;
         save.onclick = async () => {
           save.disabled = true;
@@ -142,19 +162,30 @@ window.setupControlInvitations = api => {
         };
         const revoke = document.createElement('button');
         revoke.type = 'button';
-        revoke.textContent = 'حذف الصلاحية';
+        revoke.textContent = 'حذف';
         revoke.onclick = async () => {
+          menu.open = false;
           if (!confirm('حذف صلاحية ' + invite.email + ' وإيقاف وصوله فورًا؟')) return;
           try { await api('revoke', {email: invite.email}); await openInvites(); }
           catch (error) { $('invite-status').textContent = error.message; }
         };
-        const emailInvite = document.createElement('a');
-        emailInvite.className = 'invite-email-link';
-        emailInvite.textContent = 'إرسال إيميل';
-        const subject = 'دعوة إلى ري باي';
-        const message = 'مرحبًا،\n\nتمت دعوتك إلى منصة ري باي. افتح الرابط وسجّل دخولك بالبريد الإلكتروني نفسه:\nhttps://control.repay.sa/\n\nفريق ري باي';
-        emailInvite.href = 'mailto:' + encodeURIComponent(invite.email).replace('%40', '@') + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(message);
-        actions.append(select, duration, save, revoke, emailInvite);
+        const edit = document.createElement('button');
+        edit.type = 'button';
+        edit.textContent = 'تعديل';
+        edit.onclick = () => {
+          menu.open = false;
+          actions.hidden = false;
+          select.focus();
+        };
+        const send = document.createElement('a');
+        send.className = 'invite-email-link';
+        send.textContent = 'إرسال';
+        const recipient = encodeURIComponent(invite.email).replace('%40', '@');
+        const subject = encodeURIComponent('دعوة إلى ري باي');
+        send.href = 'mailto:' + recipient + '?subject=' + subject + '&body=' + encodeURIComponent(defaultMessage);
+        send.onclick = () => { menu.open = false; };
+        choices.append(edit, revoke, send);
+        actions.append(select, duration, save);
         row.append(actions);
         return row;
       });
