@@ -63,6 +63,13 @@ for (const storageMode of ['shared', 'dedicated', 'attached']) test(storageMode 
  const after=await inviteFor('viewer@example.com',newAdmin.token);
  assert.equal(after.role,'admin');
  assert.equal(after.expiresAt,before.expiresAt);
+ const promoted=await login('viewer@example.com','5555');
+ assert.equal((await call('edit-invite',{email:'viewer@example.com',role:'admin',days:0},newAdmin.token)).status,400);
+ const extended=await call('edit-invite',{email:'viewer@example.com',role:'admin',days:30},newAdmin.token);
+ assert.equal(extended.status,200);
+ assert.ok(Date.parse(extended.body.invite.expiresAt)>Date.parse(after.expiresAt)+22*86400000);
+ assert.equal(await handle.controlAccess({headers:{authorization:'Bearer '+promoted.token}}),'admin');
+
  assert.equal((await login('viewer@example.com')).requiresPassword,true);
  assert.equal(await handle.controlAccess({headers:{authorization:'Bearer '+viewer.token}}),null);
  await call('revoke',{email:'viewer@example.com'},newAdmin.token);

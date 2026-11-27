@@ -144,17 +144,22 @@ export function createDataRoom(env,fetcher=fetch){
   if(['invite','edit-invite','revoke'].includes(route)&&req.method==='POST'){
    const input=await body(req);
    const email=String(input.email||'').trim().toLowerCase();
-   const days=Number(input.days);
+   const days=input.days;
    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))throw err(400,'بريد إلكتروني غير صالح');
    if(email===ADMIN||email===s.email)throw err(403,'لا يمكن تعديل صلاحية هذا الحساب');
    if(route!=='revoke'&&!['admin','viewer','dataroom'].includes(input.role))throw err(400,'صلاحية غير صالحة');
-   if(route==='invite'&&(!Number.isSafeInteger(days)||days<1||days>3650))throw err(400,'مدة وصول غير صالحة');
+   const duration=Number(days);
+   if((route==='invite'||(route==='edit-invite'&&days!==undefined))&&
+    (!Number.isSafeInteger(duration)||duration<1||duration>3650))throw err(400,'مدة وصول غير صالحة');
+   let invalidateSessions=route!=='edit-invite';
    const invite=await mutate(index=>{
     if(!isAdmin(roleFor(index,s.email))||roleFor(index,s.email)!==s.role)throw err(403,'غير مصرح لك');
     const existing=index.invites[email];
     if(route==='edit-invite'){
      if(!existing||existing.revokedAt||Date.parse(existing.expiresAt)<=Date.now())throw err(404,'الدعوة غير سارية');
+     invalidateSessions=existing.role!==input.role;
      existing.role=input.role;
+     if(days!==undefined)existing.expiresAt=new Date(Date.now()+duration*86400000).toISOString();
      return existing;
     }
     if(route==='revoke'){
@@ -164,11 +169,11 @@ export function createDataRoom(env,fetcher=fetch){
     }
     if(existing&&!existing.revokedAt&&Date.parse(existing.expiresAt)>Date.now())throw err(409,'لهذا الحساب دعوة سارية. عدّل الصلاحية من القائمة.');
     const now=Date.now();
-    const item={email,role:input.role,createdAt:new Date(now).toISOString(),expiresAt:new Date(now+days*86400000).toISOString(),firstLoginAt:null,lastLoginAt:null,revokedAt:null};
+    const item={email,role:input.role,createdAt:new Date(now).toISOString(),expiresAt:new Date(now+duration*86400000).toISOString(),firstLoginAt:null,lastLoginAt:null,revokedAt:null};
     index.invites[email]=item;
     return item;
    });
-   for(const [token,active] of sessions)if(active.email===email)sessions.delete(token);
+   if(invalidateSessions)for(const [token,active] of sessions)if(active.email===email)sessions.delete(token);
    return json(res,200,{ok:true,invite});
   }
   if(route==='delete'&&req.method==='POST'){

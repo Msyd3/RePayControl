@@ -70,6 +70,7 @@ window.setupControlInvitations = api => {
   const $ = id => document.getElementById(id);
 
   const roleLabels = {dataroom: 'البيانات', viewer: 'متصفح', admin: 'مدير'};
+  const expiryFormat = new Intl.DateTimeFormat('ar-SA', {calendar: 'gregory', timeZone: 'Asia/Riyadh', dateStyle: 'short'});
   const statusLabels = {Invited: 'دعوة', Pending: 'انتظار', Accepted: 'قبول', Active: 'قبول', Expired: 'منتهية', Revoked: 'ملغاة'};
 
   async function openInvites() {
@@ -88,6 +89,13 @@ window.setupControlInvitations = api => {
         status.dataset.status = invite.status;
         status.textContent = statusLabels[invite.status] ?? invite.status;
         identity.append(email, status);
+        const expiry = new Date(invite.expiresAt);
+        if (Number.isFinite(expiry.getTime())) {
+          const expiryLabel = document.createElement('span');
+          expiryLabel.className = 'invite-expiry';
+          expiryLabel.textContent = 'ينتهي ' + expiryFormat.format(expiry);
+          identity.append(expiryLabel);
+        }
         row.append(identity);
 
         if (invite.editable === false || ['Expired', 'Revoked'].includes(invite.status)) {
@@ -108,30 +116,45 @@ window.setupControlInvitations = api => {
           option.selected = value === invite.role;
           select.append(option);
         }
+        const duration = document.createElement('select');
+        duration.setAttribute('aria-label', 'مدة دعوة ' + invite.email);
+        for (const [value, label] of [['', 'تعديل المدة'], ['7', '7 أيام من اليوم'], ['14', '14 يومًا من اليوم'], ['30', '30 يومًا من اليوم']]) {
+          const option = document.createElement('option');
+          option.value = value;
+          option.textContent = label;
+          duration.append(option);
+        }
         const save = document.createElement('button');
         save.type = 'button';
         save.textContent = 'حفظ';
         save.disabled = true;
-        select.onchange = () => { save.disabled = select.value === invite.role; };
+        const updateSave = () => { save.disabled = select.value === invite.role && !duration.value; };
+        select.onchange = duration.onchange = updateSave;
         save.onclick = async () => {
           save.disabled = true;
-          select.disabled = true;
+          select.disabled = duration.disabled = true;
           try {
-            await api('edit-invite', {email: invite.email, role: select.value});
-            $('invite-status').textContent = 'تم تحديث الصلاحية';
+            await api('edit-invite', {email: invite.email, role: select.value, days: duration.value || undefined});
+            $('invite-status').textContent = 'تم تحديث الدعوة';
             await openInvites();
           } catch (error) { $('invite-status').textContent = error.message; }
-          finally { select.disabled = false; save.disabled = select.value === invite.role; }
+          finally { select.disabled = duration.disabled = false; updateSave(); }
         };
         const revoke = document.createElement('button');
         revoke.type = 'button';
-        revoke.textContent = 'إلغاء الوصول';
+        revoke.textContent = 'حذف الصلاحية';
         revoke.onclick = async () => {
-          if (!confirm('إلغاء وصول ' + invite.email + '؟')) return;
+          if (!confirm('حذف صلاحية ' + invite.email + ' وإيقاف وصوله فورًا؟')) return;
           try { await api('revoke', {email: invite.email}); await openInvites(); }
           catch (error) { $('invite-status').textContent = error.message; }
         };
-        actions.append(select, save, revoke);
+        const emailInvite = document.createElement('a');
+        emailInvite.className = 'invite-email-link';
+        emailInvite.textContent = 'إرسال إيميل';
+        const subject = 'دعوة إلى ري باي';
+        const message = 'مرحبًا،\n\nتمت دعوتك إلى منصة ري باي. افتح الرابط وسجّل دخولك بالبريد الإلكتروني نفسه:\nhttps://control.repay.sa/\n\nفريق ري باي';
+        emailInvite.href = 'mailto:' + encodeURIComponent(invite.email).replace('%40', '@') + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(message);
+        actions.append(select, duration, save, revoke, emailInvite);
         row.append(actions);
         return row;
       });
