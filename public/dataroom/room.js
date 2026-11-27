@@ -221,7 +221,9 @@ function show(id) {
   const folders = db.folders.filter(folder => folder.parent === id).sort((a, b) => a.number - b.number);
   $('folder-list').hidden = !root;
   $('folder-detail').hidden = root;
-  $('room-admin-tools').hidden = !db.admin;
+  const tools = $('room-admin-tools');
+  $(root ? 'root-folder-tools' : 'folder-toolbar').append(tools);
+  tools.hidden = !db.admin;
   $('upload-file').hidden = root;
   $(root ? 'folders' : 'nested-folders').replaceChildren(...folders.map(folderCard));
   $('folder-count').textContent = db.folders.filter(folder => folder.parent === null).length;
@@ -229,12 +231,8 @@ function show(id) {
   $('folder-title').textContent = db.folders.find(folder => folder.id === id).name;
   const files = db.files.filter(file => file.parent === id);
   $('folder-files').replaceChildren(...files.map(file => fileCard(file, renderId)));
-  if (!files.length && !folders.length) {
-    const empty = document.createElement('p');
-    empty.className = 'room-empty';
-    empty.textContent = 'المجلد فارغ';
-    $('folder-files').append(empty);
-  }
+  $('folder-files').hidden = files.length === 0;
+  $('folder-empty').hidden = files.length > 0 || folders.length > 0;
 }
 
 $('folder-back').onclick = () => show(db.folders.find(folder => folder.id === current)?.parent ?? null);
