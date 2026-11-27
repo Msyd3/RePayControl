@@ -1,3 +1,4 @@
+import mammoth from 'mammoth';
 import {normalizeDigits} from './auth.mjs';
 import { taroutStorage } from './tarout-storage.mjs';
 import {createNdaPdf} from './nda-pdf.mjs';
@@ -30,7 +31,7 @@ export function createDataRoom(env,fetcher=fetch){
  async function storage(name,method='GET',body){
   const url = new URL(backend.bucket.href + '/dataroom/' + name);
   const r = await backend.request(url,{method,headers:{'Content-Type':'application/octet-stream'},body,redirect:'error',signal:AbortSignal.timeout(20000)});
-  if(r.status===404&&method==='GET')return null;
+  if(r.status===404&&['GET','DELETE'].includes(method))return null;
   if(!r.ok)throw err(503,'Data room storage unavailable');
   return method==='GET'?open(Buffer.from(await r.arrayBuffer())):null;
  }
@@ -41,7 +42,14 @@ export function createDataRoom(env,fetcher=fetch){
  function throttle(k,max,window){const now=Date.now();if(limits.size>5000){for(const [id,v] of limits)if(v.until<now)limits.delete(id);if(limits.size>5000)throw err(429,'Try again later');}let v=limits.get(k);if(!v||v.until<now){v={n:0,until:now+window};limits.set(k,v);}if(++v.n>max)throw err(429,'Too many attempts');}
  function cleanName(s){if(typeof s!=='string'||!s.trim()||s.length>180||/[\\/\x00-\x1f]/.test(s))throw err(400,'Invalid name');return s.trim();}
  function session(req){const token=(req.headers.authorization||'').replace(/^Bearer /,'');const s=sessions.get(token);if(!s||s.exp<Date.now())throw err(401,'Sign in first');return s;}
- return async function handle(req,res,url,json,sameOrigin){
+ async function controlAccess(req){
+  const token=(req.headers.authorization||'').replace(/^Bearer /,'');
+  const user=sessions.get(token);
+  if(!user||user.exp<Date.now())return null;
+  const role=roleFor(await readIndex(),user.email);
+  return isAdmin(role)||role==='viewer'?role:null;
+ }
+ async function handle(req,res,url,json,sameOrigin){
   if(!ready())return json(res,503,{error:'Data room access and storage are not configured'});
   if(req.method==='POST'&&!sameOrigin())return json(res,403,{error:'Forbidden'});
   const route=url.pathname.slice('/api/dataroom/'.length),remote=req.socket.remoteAddress||'unknown';
@@ -76,10 +84,16 @@ export function createDataRoom(env,fetcher=fetch){
    for(const [token,session] of sessions)if(session.exp<Date.now())sessions.delete(token);
    const token=randomBytes(32).toString('hex');
    sessions.set(token,{email,exp:Date.now()+3600000});
-   return json(res,200,{token,role,admin:isAdmin(role),needsNda:!isAdmin(role)&&accepted?.version!==VERSION,name:isAdmin(role)?'Admin':accepted?.name||''});
+   return json(res,200,{token,role,admin:isAdmin(role),needsNda:role==='dataroom'&&accepted?.version!==VERSION,name:isAdmin(role)?'Admin':accepted?.name||''});
   }
   const s=session(req);const currentDb=await readIndex();const role=roleFor(currentDb,s.email);if(!role)throw err(403,'انتهت أو ألغيت صلاحية الوصول');const admin=isAdmin(role);
   if(route==='logout'&&req.method==='POST'){sessions.delete((req.headers.authorization||'').slice(7));return json(res,200,{ok:true});}
+  const accepted=currentDb.acceptances[s.email];
+  if(route==='session'&&req.method==='GET')return json(res,200,{
+   email:s.email,role,admin,needsNda:role==='dataroom'&&accepted?.version!==VERSION,
+   name:admin?'Admin':accepted?.name||'',
+  });
+  if(role==='viewer')throw err(403,'الحساب مخصص لعرض لوحة التحكم');
   if(route==='accept'&&req.method==='POST'){
    if(admin)return json(res,200,{ok:true,admin:true,name:'Admin'});
    const d=await body(req);if(d.agree!==true||d.version!==VERSION)throw err(400,'NDA acceptance required');const name=cleanName(d.name);
@@ -93,13 +107,69 @@ export function createDataRoom(env,fetcher=fetch){
   }
   const db=await readIndex();if(!admin&&db.acceptances[s.email]?.version!==VERSION)throw err(403,'Accept NDA first');
   if(route==='list'&&req.method==='GET')return json(res,200,{folders:db.folders.filter(f=>admin||!privateFolder(db,f.id)),files:db.files.filter(f=>admin||(!f.private&&!privateFolder(db,f.parent))),admin,role});
-  if(route==='download'&&req.method==='GET'){const f=db.files.find(x=>x.id===url.searchParams.get('id'));if(!f||(!admin&&(f.private||privateFolder(db,f.parent))))throw err(404,'File not found');const bytes=await storage('files/'+f.id+'.bin');if(!bytes)throw err(404,'File not found');res.writeHead(200,{'Content-Type':'application/octet-stream','Content-Disposition':"attachment; filename*=UTF-8''"+encodeURIComponent(f.name),'Cache-Control':'no-store'});return res.end(bytes);}
+  if(route==='preview'&&req.method==='GET'){
+   const file=db.files.find(item=>item.id===url.searchParams.get('id'));
+   if(!file||(!admin&&(file.private||privateFolder(db,file.parent))))throw err(404,'File not found');
+   let bytes=await storage('files/'+file.id+'.bin');
+   if(!bytes)throw err(404,'File not found');
+   let type;
+   if(bytes.subarray(0,5).toString()==='%PDF-')type='application/pdf';
+   else if(bytes.subarray(0,8).equals(Buffer.from('89504e470d0a1a0a','hex')))type='image/png';
+   else if(bytes.subarray(0,3).equals(Buffer.from('ffd8ff','hex')))type='image/jpeg';
+   else if(/^GIF8[79]a$/.test(bytes.subarray(0,6).toString()))type='image/gif';
+   else if(bytes.subarray(0,4).toString()==='RIFF'&&bytes.subarray(8,12).toString()==='WEBP')type='image/webp';
+   else if(/\.(txt|csv|md)$/i.test(file.name))type='text/plain; charset=utf-8';
+   else if(/\.docx$/i.test(file.name)){
+    try{bytes=Buffer.from((await mammoth.extractRawText({buffer:bytes})).value);}
+    catch{throw err(415,'تعذرت معاينة مستند Word');}
+    type='text/plain; charset=utf-8';
+   }
+   if(!type)throw err(415,'هذا النوع لا يدعم المعاينة');
+   res.writeHead(200,{'Content-Type':type,'Content-Disposition':"inline; filename*=UTF-8''"+encodeURIComponent(file.name),'Cache-Control':'no-store'});
+   return res.end(bytes);
+  }
   if(!admin)throw err(403,'Admin only');
   if(route==='invites'&&req.method==='GET')return json(res,200,{invites:Object.values(db.invites).map(i=>({...i,status:i.revokedAt?'Revoked':Date.parse(i.expiresAt)<=Date.now()?'Expired':i.firstLoginAt?'Active':'Pending'}))});
   if(route==='invite'&&req.method==='POST'){const d=await body(req),email=String(d.email||'').trim().toLowerCase(),days=Number(d.days);if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||email===ADMIN||!['admin','viewer','dataroom'].includes(d.role)||!Number.isSafeInteger(days)||days<1||days>3650)throw err(400,'Invalid invitation');const i=await mutate(db=>{const old=db.invites[email];const now=new Date();const item={email,role:d.role,createdAt:old?.createdAt||now.toISOString(),expiresAt:new Date(now.getTime()+days*86400000).toISOString(),firstLoginAt:old?.firstLoginAt||null,lastLoginAt:old?.lastLoginAt||null,revokedAt:null};db.invites[email]=item;return item;});return json(res,200,{invite:i});}
   if(route==='revoke'&&req.method==='POST'){const d=await body(req),email=String(d.email||'').trim().toLowerCase();if(email===ADMIN)throw err(403,'Owner protected');await mutate(db=>{if(!db.invites[email])throw err(404,'Invite not found');db.invites[email].revokedAt=new Date().toISOString();});return json(res,200,{ok:true});}
-  if(route==='folder'&&req.method==='POST'){const d=await body(req),name=cleanName(d.name),parent=d.parent??null;const folder=await mutate(db=>{if(parent!==null&&!db.folders.some(x=>x.id===parent))throw err(404,'Folder not found');const item={id:randomBytes(16).toString('hex'),name,parent,number:db.folders.filter(x=>x.parent===parent).length+1};db.folders.push(item);return item;});return json(res,201,folder);}
+  if(route==='delete'&&req.method==='POST'){
+   const {kind,id}=await body(req);
+   if(!['file','folder'].includes(kind)||typeof id!=='string')throw err(400,'Invalid item');
+   const pending=await mutate(db=>{
+    db.pendingFileDeletes??=[];
+    const folderIds=new Set();
+    if(kind==='folder'){
+     if(!db.folders.some(folder=>folder.id===id))throw err(404,'Folder not found');
+     folderIds.add(id);
+     for(const folderId of folderIds){
+      for(const folder of db.folders)if(folder.parent===folderId)folderIds.add(folder.id);
+     }
+     if(folderIds.has(NDA_FOLDER))throw err(409,'مجلد أرشيف عدم الإفصاح محمي');
+    }else if(!db.files.some(file=>file.id===id)&&!db.pendingFileDeletes.includes(id)){
+     throw err(404,'File not found');
+    }
+    const removed=db.files.filter(file=>kind==='file'?file.id===id:folderIds.has(file.parent));
+    const removedIds=new Set(removed.map(file=>file.id));
+    db.files=db.files.filter(file=>!removedIds.has(file.id));
+    db.folders=db.folders.filter(folder=>!folderIds.has(folder.id));
+    db.pendingFileDeletes=[...new Set([...db.pendingFileDeletes,...removedIds])];
+    return db.pendingFileDeletes;
+   });
+   const deleted=[];
+   for(const fileId of pending){
+    try{await storage('files/'+fileId+'.bin','DELETE');deleted.push(fileId);}
+    catch{console.warn('Data Room object deletion pending');}
+   }
+   if(deleted.length)await mutate(db=>{
+    const done=new Set(deleted);
+    db.pendingFileDeletes=db.pendingFileDeletes.filter(fileId=>!done.has(fileId));
+   });
+   return json(res,200,{ok:true,pending:pending.length-deleted.length});
+  }
+  if(route==='folder'&&req.method==='POST'){const d=await body(req),name=cleanName(d.name),parent=d.parent??null;const folder=await mutate(db=>{if(parent!==null&&!db.folders.some(x=>x.id===parent))throw err(404,'Folder not found');const item={id:randomBytes(16).toString('hex'),name,parent,number:1+Math.max(0,...db.folders.filter(x=>x.parent===parent).map(x=>x.number))};db.folders.push(item);return item;});return json(res,201,folder);}
   if(route==='upload'&&req.method==='POST'){const d=await body(req,14*1024*1024),name=cleanName(d.name),parent=d.parent;if(typeof d.data!=='string'||!/^[A-Za-z0-9+/]*={0,2}$/.test(d.data))throw err(400,'Invalid file');const bytes=Buffer.from(d.data,'base64');if(!bytes.length||bytes.length>10*1024*1024)throw err(413,'Maximum 10 MB');const file=await mutate(async db=>{if(!db.folders.some(x=>x.id===parent))throw err(404,'Folder not found');const f={id:randomBytes(16).toString('hex'),name,parent,size:bytes.length};await storage('files/'+f.id+'.bin','PUT',seal(bytes));db.files.push(f);return f;});return json(res,201,file);}
   return json(res,404,{error:'Not found'});
  };
+ handle.controlAccess=controlAccess;
+ return handle;
 }

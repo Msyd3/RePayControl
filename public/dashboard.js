@@ -2,8 +2,9 @@ let pdfLibraries;
 function loadPdfLibraries(){if(!pdfLibraries)pdfLibraries=(async()=>{for(const src of ["/vendor/pdf-lib.min.js","/vendor/html2canvas.min.js","/export-pdf.js"]){await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=src;s.onload=resolve;s.onerror=()=>{s.remove();reject(Error('PDF library unavailable'));};document.head.append(s);});}})().catch(e=>{pdfLibraries=null;throw e;});return pdfLibraries;}
 'use strict';
 const $=s=>document.querySelector(s);
-const apiOrigin=window.REPAY_CONTROL_API_ORIGIN||'';
-let adminToken='';try{adminToken=sessionStorage.getItem('rc-admin-session')||'';}catch{}
+const apiOrigin=window.REPAY_DATAROOM_API_ORIGIN??window.REPAY_CONTROL_API_ORIGIN??'';
+let readOnly=false;
+let adminToken='';try{adminToken=sessionStorage.getItem('repay-control-session')||'';}catch{}
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const number=v=>v==null?'—':new Intl.NumberFormat('en-US',{maximumFractionDigits:2}).format(v);
 const state={report:null,authenticated:false,loading:false,exporting:false};
@@ -86,8 +87,8 @@ function render(){
   $('#updated-at').textContent='آخر تحديث '+timestampFormat.format(new Date(state.report.updatedAt));
 }
 function toast(message){$('#toast').textContent=message;$('#toast').hidden=false;setTimeout(()=>$('#toast').hidden=true,4000);}
-function login(){state.authenticated=false;$('#app').hidden=true;$('#login-screen').hidden=false;}
-async function api(url,options){const headers=new Headers(options&&options.headers);if(adminToken)headers.set('Authorization','Bearer '+adminToken);const r=await fetch(apiOrigin+url,{...(options||{}),headers,credentials:apiOrigin?'omit':'same-origin'});if(r.status===401&&url!=='/api/login'){login();throw Error('سجّل الدخول مجددًا');}const d=await r.json();if(!r.ok)throw Error(d.error||'تعذر تحميل البيانات');return d;}
+function login(){state.authenticated=false;$('#app').hidden=true;$('#control-layout').hidden=true;$('#login-screen').hidden=false;}
+async function api(url,options){const headers=new Headers(options&&options.headers);if(adminToken)headers.set('Authorization','Bearer '+adminToken);const r=await fetch(apiOrigin+url,{...(options||{}),headers,credentials:apiOrigin?'omit':'same-origin'});if(r.status===401){login();throw Error('سجّل الدخول مجددًا');}const d=await r.json();if(!r.ok)throw Error(d.error||'تعذر تحميل البيانات');return d;}
 async function load(){
   if(!state.authenticated||state.loading||$('#avatar-picker').open)return;
   state.loading=true;
@@ -166,8 +167,35 @@ $('#avatar-options').addEventListener('click',async event=>{
 });
 $('#refresh').addEventListener('click',load);
 $('#password').addEventListener('input',e=>{e.target.value=e.target.value.replace(/[٠-٩]/g,c=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(c))).replace(/[۰-۹]/g,c=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(c)));});
-$('#login-form').addEventListener('submit',async e=>{e.preventDefault();const b=e.target.querySelector('button');b.disabled=true;$('#login-error').textContent='';try{const signedIn=await api('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:$('#password').value})});adminToken=signedIn.token||'';try{sessionStorage.setItem('rc-admin-session',adminToken);}catch{}$('#password').value='';state.authenticated=true;$('#login-screen').hidden=true;$('#app').hidden=false;await load();}catch(e){$('#login-error').textContent=e.message;}finally{b.disabled=false;}});
-$('#logout').addEventListener('click',async()=>{try{await api('/api/logout',{method:'POST'});state.report=null;adminToken='';try{sessionStorage.removeItem('rc-admin-session');}catch{}login();}catch(e){toast(e.message);}});
+$('#logout').addEventListener('click',async()=>{
+ try{await api('/api/dataroom/logout',{method:'POST'});}
+ catch(error){toast(error.message);}
+ finally{state.report=null;adminToken='';sessionStorage.removeItem('repay-control-session');login();}
+});
 $('#export').addEventListener('click',async()=>{if(!state.report||state.exporting)return;state.exporting=true;const b=$('#export');b.disabled=true;b.textContent='جارٍ تجهيز PDF…';try{await loadPdfLibraries();await window.exportControlPDF(state.report,pdfPages(state.report));toast('تم تنزيل التقرير PDF');}catch(e){toast('تعذر تجهيز PDF. أعد المحاولة.');console.error('PDF export failed');}finally{state.exporting=false;b.disabled=false;b.innerHTML='<span aria-hidden="true">↓</span> تصدير PDF';}});
-(async()=>{if(window.REPAY_CONTROL_FRONTEND_ONLY){login();$('#login-error').textContent='الواجهة منشورة على GitHub. الدخول والبيانات بانتظار ربط خادم التطبيق.';$('#password').disabled=true;$('#login-form button').disabled=true;return;}try{await api('/api/me');state.authenticated=true;$('#app').hidden=false;await load();}catch(e){login();$('#login-error').textContent=e.message==='سجّل الدخول مجددًا'?'':'تعذر الاتصال بالخادم';}})();
-setInterval(()=>{if(state.authenticated&&!document.hidden)load();},30000);
+(async()=>{
+ if(!adminToken){login();return;}
+ try{
+  const me=await api('/api/me');
+  readOnly=me.role==='viewer';
+  document.querySelectorAll('[data-admin-link]').forEach(link=>{link.hidden=readOnly;});
+  $('#app').classList.toggle('read-only',readOnly);
+  $('#export').hidden=readOnly;
+  state.authenticated=true;
+  $('#login-screen').hidden=true;
+  $('#control-layout').hidden=false;
+  $('#app').hidden=false;
+  await load();
+ }catch(error){
+  if(error.message==='سجّل الدخول مجددًا'){
+   try{
+    const room=await api('/api/dataroom/session');
+    if(room.role==='dataroom'){location.replace('/dataroom/');return;}
+   }catch{}
+   sessionStorage.removeItem('repay-control-session');
+   adminToken='';
+  }
+  login();
+  $('#login-error').textContent=error.message==='سجّل الدخول مجددًا'?'':error.message;
+ }
+})();

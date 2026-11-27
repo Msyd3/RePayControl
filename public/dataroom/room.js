@@ -1,52 +1,339 @@
 'use strict';
-const $=id=>document.getElementById(id),login=$('room-login'),app=$('room-app'),nda=$('room-nda'),agree=$('nda-agree'),next=$('nda-continue');
-const origin=window.REPAY_DATAROOM_API_ORIGIN??window.REPAY_CONTROL_API_ORIGIN??'';
-let email='',token='',admin=false,db={folders:[],files:[]},current=null;
-async function api(route,data){const r=await fetch(origin+'/api/dataroom/'+route,{method:data===undefined?'GET':'POST',headers:{...(token?{Authorization:'Bearer '+token}:{}),...(data===undefined?{}:{'Content-Type':'application/json'})},body:data===undefined?undefined:JSON.stringify(data),credentials:'omit',cache:'no-store'});if(!r.ok){let d={};try{d=await r.json()}catch{}throw Error(d.error||'تعذر الاتصال');}return r.json();}
-async function busy(form,fn,status){const b=form.querySelector('button');b.disabled=true;$(status).textContent='';try{await fn()}catch(e){$(status).textContent=e.message}finally{b.disabled=false;if(form.id==='nda-form')updateNda()}}
-function updateNda(){next.disabled=!token||!agree.checked||!$('nda-name').value.trim();}
-async function signIn(password){
- const result=await api('login',{email,password});
- if(result.requiresPassword){
-  $('room-form').hidden=true;
-  $('password-form').hidden=false;
-  $('room-password').focus();
-  return;
- }
- token=result.token;
- admin=result.admin;
- if(!result.needsNda){await enterRoom(result.name);return;}
- login.hidden=true;
- nda.hidden=false;
- $('nda-email').value=email;
- $('nda-name').focus();
- updateNda();
+
+const $ = id => document.getElementById(id);
+const origin = window.REPAY_DATAROOM_API_ORIGIN ?? window.REPAY_CONTROL_API_ORIGIN ?? '';
+const sessionKey = 'repay-control-session';
+const token = sessionStorage.getItem(sessionKey);
+const app = $('room-app');
+const nda = $('room-nda');
+const viewer = $('file-viewer');
+let session;
+let current = null;
+let db;
+let previews = [];
+let viewerUrl;
+let renderId = 0;
+let changing = false;
+
+async function request(route, data) {
+  const response = await fetch(origin + '/api/dataroom/' + route, {
+    method: data === undefined ? 'GET' : 'POST',
+    headers: {
+      Authorization: 'Bearer ' + token,
+      ...(data === undefined ? {} : {'Content-Type': 'application/json'}),
+    },
+    body: data === undefined ? undefined : JSON.stringify(data),
+    cache: 'no-store',
+  });
+  if (response.status === 401) {
+    sessionStorage.removeItem(sessionKey);
+    location.replace('/');
+  }
+  if (!response.ok) {
+    const {error} = await response.json().catch(() => ({}));
+    throw Error(error || 'تعذر الاتصال');
+  }
+  return response;
 }
-$('room-form').addEventListener('submit',event=>{
- event.preventDefault();
- email=$('email').value.trim().toLowerCase();
- void busy(event.target,()=>signIn(),'login-status');
+
+async function api(route, data) {
+  return (await request(route, data)).json();
+}
+
+async function logout() {
+  try { await api('logout', {}); }
+  finally {
+    sessionStorage.removeItem(sessionKey);
+    location.replace('/');
+  }
+}
+
+$('room-logout').onclick = logout;
+$('nda-decline').onclick = logout;
+$('nda-form').onsubmit = async event => {
+  event.preventDefault();
+  const button = $('nda-continue');
+  button.disabled = true;
+  try {
+    const result = await api('accept', {name: $('nda-name').value.trim(), agree: true, version: 'NDA-v1'});
+    session.name = result.name;
+    await openRoom();
+  } catch (error) {
+    $('nda-status').textContent = error.message;
+    updateConsent();
+  }
+};
+
+function updateConsent() {
+  $('nda-continue').disabled = !$('nda-agree').checked || !$('nda-name').value.trim();
+}
+
+$('nda-agree').onchange = updateConsent;
+$('nda-name').oninput = updateConsent;
+
+async function openRoom() {
+  db = await api('list');
+  $('room-email').textContent = session.email;
+  $('room-name').textContent = session.name;
+  $('control-link').hidden = !db.admin;
+  nda.hidden = true;
+  app.hidden = false;
+  show(null);
+  if (db.admin && location.hash === '#invites') await openInvites();
+}
+
+function menu(kind, item) {
+  const details = document.createElement('details');
+  details.className = 'file-menu';
+  const trigger = document.createElement('summary');
+  trigger.textContent = '⋮';
+  trigger.setAttribute('aria-label', 'خيارات ' + item.name);
+  const remove = document.createElement('button');
+  remove.type = 'button';
+  remove.textContent = 'حذف';
+  remove.onclick = () => {
+    const message = kind === 'folder'
+      ? 'حذف «' + item.name + '» والمجلدات والملفات اللي بداخله؟'
+      : 'حذف «' + item.name + '»؟';
+    details.open = false;
+    if (confirm(message)) void change(() => api('delete', {kind, id: item.id}));
+  };
+  details.append(trigger, remove);
+  return details;
+}
+
+function folderCard(folder) {
+  const card = document.createElement('div');
+  card.className = 'room-folder-card';
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'room-folder';
+  const icon = document.createElement('span');
+  icon.className = 'folder-icon';
+  icon.setAttribute('aria-hidden', 'true');
+  const label = document.createElement('span');
+  label.dir = 'auto';
+  label.textContent = folder.name;
+  button.append(icon, label);
+  button.onclick = () => show(folder.id);
+  card.append(button);
+  if (db.admin && folder.id !== 'private-nda') card.append(menu('folder', folder));
+  return card;
+}
+
+async function preview(file, target, thumbnail, active) {
+  const response = await request('preview?id=' + encodeURIComponent(file.id));
+  const type = response.headers.get('content-type') || '';
+  if (type.startsWith('text/plain')) {
+    const text = await response.text();
+    if (!active()) return;
+    const node = document.createElement('pre');
+    node.dir = 'auto';
+    node.textContent = thumbnail ? text.slice(0, 1400) : text;
+    target.replaceChildren(node);
+    return;
+  }
+  const blob = await response.blob();
+  if (!active()) return;
+  const url = URL.createObjectURL(blob);
+  if (thumbnail) previews.push(url);
+  else viewerUrl = url;
+  const isPdf = type.startsWith('application/pdf');
+  const node = document.createElement(isPdf ? 'iframe' : 'img');
+  node.src = url + (isPdf ? '#toolbar=0&navpanes=0&scrollbar=0&view=FitH' : '');
+  if (isPdf) node.title = file.name;
+  else node.alt = file.name;
+  target.replaceChildren(node);
+}
+
+function fileCard(file, version) {
+  const card = document.createElement('article');
+  card.className = 'room-file-card';
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'room-file-open';
+  const title = document.createElement('span');
+  title.className = 'room-file-title';
+  const extension = file.name.split('.').at(-1).toUpperCase();
+  const badge = document.createElement('span');
+  badge.className = 'file-type';
+  badge.dataset.type = extension;
+  badge.textContent = extension.length <= 5 ? extension : 'FILE';
+  const name = document.createElement('span');
+  name.dir = 'auto';
+  name.textContent = file.name;
+  title.append(badge, name);
+  const picture = document.createElement('div');
+  picture.className = 'room-file-picture';
+  picture.textContent = 'معاينة الملف';
+  button.append(title, picture);
+  button.onclick = () => openFile(file);
+  card.append(button);
+  if (db.admin) card.append(menu('file', file));
+  observer.observe(picture);
+  picture.loadPreview = () => preview(file, picture, true, () => renderId === version)
+    .catch(() => { picture.textContent = 'المعاينة غير متاحة'; });
+  return card;
+}
+
+const observer = new IntersectionObserver(entries => {
+  for (const {target, isIntersecting} of entries) {
+    if (!isIntersecting) continue;
+    observer.unobserve(target);
+    void target.loadPreview();
+  }
 });
-$('room-password').addEventListener('input',event=>{
- const input=event.target;
- input.value=input.value
-  .replace(/[٠-٩]/g,digit=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)))
-  .replace(/[۰-۹]/g,digit=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)));
+
+function openFile(file) {
+  const target = $('viewer-content');
+  $('viewer-title').textContent = file.name;
+  target.textContent = 'جارٍ فتح الملف';
+  viewer.showModal();
+  const id = Symbol();
+  viewer.previewId = id;
+  const active = () => viewer.open && viewer.previewId === id;
+  void preview(file, target, false, active)
+    .catch(error => { if (active()) target.textContent = error.message; });
+}
+
+viewer.addEventListener('close', () => {
+  if (viewerUrl) URL.revokeObjectURL(viewerUrl);
+  viewerUrl = null;
+  $('viewer-content').replaceChildren();
 });
-$('password-form').addEventListener('submit',event=>{
- event.preventDefault();
- void busy(event.target,()=>signIn($('room-password').value),'password-status');
-});
-$('nda-name').addEventListener('input',updateNda);agree.addEventListener('change',updateNda);
-$('nda-form').addEventListener('submit',e=>{e.preventDefault();if(next.disabled)return;busy(e.target,async()=>{const r=await api('accept',{name:$('nda-name').value.trim(),agree:true,version:'NDA-v1'});await enterRoom(r.name)},'nda-status')});
-async function reset(){try{if(token)await api('logout',{})}catch{}token='';email='';admin=false;db={folders:[],files:[]};current=null;app.hidden=true;nda.hidden=true;login.hidden=false;$('room-form').hidden=false;$('password-form').hidden=true;for(const id of ['email','room-password','nda-name','nda-email'])$(id).value='';agree.checked=false;updateNda();}
-$('nda-decline').addEventListener('click',reset);$('room-logout').addEventListener('click',reset);
-async function enterRoom(name){await refresh();$('room-email').textContent=email;$('room-name').textContent=name;login.hidden=true;nda.hidden=true;app.hidden=false;show(null);}
-async function refresh(){db=await api('list');admin=db.admin;}
-function folderCard(f){const item=document.createElement('div');item.className='room-grid-item';const n=document.createElement('span');n.className='room-folder-number';n.textContent=String(f.number).padStart(2,'0');const b=document.createElement('button');b.type='button';b.className='room-folder';const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');const p=document.createElementNS(svg.namespaceURI,'path');p.setAttribute('fill','currentColor');p.setAttribute('d','M3 4h6l2 3h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z');svg.append(p);const t=document.createElement('span');t.dir='auto';t.textContent=f.name;b.append(svg,t);b.onclick=()=>show(f.id);item.append(n,b);return item;}
-function show(id){current=id;const root=id===null;const children=db.folders.filter(f=>f.parent===id);$('folder-list').hidden=!root;$('folder-detail').hidden=root;app.classList.toggle('room-detail-mode',!root);$('room-admin-tools').hidden=!admin;$('upload-file').hidden=root;$(root?'folders':'nested-folders').replaceChildren(...children.map(folderCard));$('folder-count').textContent=db.folders.filter(f=>f.parent===null).length;if(root)return;const f=db.folders.find(f=>f.id===id);$('folder-title').textContent=f.name;const files=db.files.filter(x=>x.parent===id);const panel=$('folder-files');panel.replaceChildren();if(!files.length){const p=document.createElement('p');p.className='room-empty';p.textContent='لا توجد مستندات حتى الآن';panel.append(p);}for(const file of files){const b=document.createElement('button');b.className='room-file';b.textContent=file.name;b.onclick=async()=>{try{const r=await fetch(origin+'/api/dataroom/download?id='+encodeURIComponent(file.id),{headers:{Authorization:'Bearer '+token},credentials:'omit',cache:'no-store'});if(!r.ok)throw Error('تعذر تنزيل الملف');const u=URL.createObjectURL(await r.blob());const a=document.createElement('a');a.href=u;a.download=file.name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);}catch(e){alert(e.message)}};panel.append(b);}}
-$('folder-back').onclick=()=>show(db.folders.find(f=>f.id===current)?.parent??null);
-async function change(fn){$('admin-status').textContent='جارٍ الحفظ';try{await fn();await refresh();show(current);$('admin-status').textContent='تم الحفظ'}catch(e){$('admin-status').textContent=e.message}}
-$('new-folder').onclick=()=>{const name=prompt('اسم المجلد');if(name?.trim())change(()=>api('folder',{name,parent:current}));};
-$('upload-file').onclick=()=>$('file-input').click();
-$('file-input').onchange=async e=>{const f=e.target.files[0],parent=current;e.target.value='';if(!f||!parent)return;if(f.size>10*1024*1024){$('admin-status').textContent='الحد الأقصى 10 MB';return;}await change(async()=>{const data=await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(String(r.result).split(',')[1]);r.onerror=no;r.readAsDataURL(f)});await api('upload',{name:f.name,parent,data})});};
+
+function show(id) {
+  current = id;
+  renderId += 1;
+  observer.disconnect();
+  previews.forEach(url => URL.revokeObjectURL(url));
+  previews = [];
+  const root = id === null;
+  const folders = db.folders.filter(folder => folder.parent === id);
+  $('folder-list').hidden = !root;
+  $('folder-detail').hidden = root;
+  $('room-admin-tools').hidden = !db.admin;
+  $('upload-file').hidden = root;
+  $(root ? 'folders' : 'nested-folders').replaceChildren(...folders.map(folderCard));
+  $('folder-count').textContent = db.folders.filter(folder => folder.parent === null).length;
+  if (root) return;
+  $('folder-title').textContent = db.folders.find(folder => folder.id === id).name;
+  const files = db.files.filter(file => file.parent === id);
+  $('folder-files').replaceChildren(...files.map(file => fileCard(file, renderId)));
+  if (!files.length && !folders.length) {
+    const empty = document.createElement('p');
+    empty.className = 'room-empty';
+    empty.textContent = 'المجلد فارغ';
+    $('folder-files').append(empty);
+  }
+}
+
+$('folder-back').onclick = () => show(db.folders.find(folder => folder.id === current)?.parent ?? null);
+
+async function change(action) {
+  if (changing) return;
+  changing = true;
+  const status = $('admin-status');
+  status.textContent = 'جارٍ الحفظ';
+  try {
+    const result = await action();
+    db = await api('list');
+    show(current === null || db.folders.some(folder => folder.id === current) ? current : null);
+    status.textContent = result.pending ? 'أزيل الملف من الداتا روم، وحذفه من المخزن قيد المتابعة' : 'تم الحفظ';
+  } catch (error) {
+    status.textContent = error.message;
+  } finally {
+    changing = false;
+  }
+}
+
+$('new-folder').onclick = () => {
+  const name = prompt('اسم المجلد')?.trim();
+  if (name) void change(() => api('folder', {name, parent: current}));
+};
+$('upload-file').onclick = () => $('file-input').click();
+$('file-input').onchange = event => {
+  const file = event.target.files[0];
+  const parent = current;
+  event.target.value = '';
+  if (!file || !parent) return;
+  if (file.size > 10 * 1024 * 1024) {
+    $('admin-status').textContent = 'الحد الأقصى 10 MB';
+    return;
+  }
+  void change(async () => {
+    const data = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result).split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    return api('upload', {name: file.name, parent, data});
+  });
+};
+
+const roleLabels = {dataroom: 'الداتا روم', viewer: 'عرض الكنترول', admin: 'أدمن'};
+const statusLabels = {Pending: 'بانتظار الدخول', Active: 'سارية', Expired: 'منتهية', Revoked: 'ملغاة'};
+
+async function openInvites() {
+  const dialog = $('room-invites');
+  if (!dialog.open) dialog.showModal();
+  try {
+    const {invites} = await api('invites');
+    $('invite-list').replaceChildren(...invites.map(invite => {
+      const row = document.createElement('li');
+      const label = document.createElement('span');
+      label.textContent = [invite.email, roleLabels[invite.role], statusLabels[invite.status]].join(' · ');
+      row.append(label);
+      if (['Pending', 'Active'].includes(invite.status)) {
+        const revoke = document.createElement('button');
+        revoke.type = 'button';
+        revoke.textContent = 'إلغاء الوصول';
+        revoke.onclick = async () => {
+          if (!confirm('إلغاء وصول ' + invite.email + '؟')) return;
+          try { await api('revoke', {email: invite.email}); await openInvites(); }
+          catch (error) { $('invite-status').textContent = error.message; }
+        };
+        row.append(revoke);
+      }
+      return row;
+    }));
+  } catch (error) {
+    $('invite-status').textContent = error.message;
+  }
+}
+
+$('invite-form').onsubmit = async event => {
+  event.preventDefault();
+  const form = event.target;
+  const button = form.querySelector('button');
+  button.disabled = true;
+  try {
+    await api('invite', Object.fromEntries(new FormData(form)));
+    form.reset();
+    $('invite-status').textContent = 'تم حفظ الدعوة';
+    await openInvites();
+  } catch (error) {
+    $('invite-status').textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+};
+
+(async () => {
+  if (!token) { location.replace('/'); return; }
+  try {
+    session = await api('session');
+    if (session.role === 'viewer') { location.replace('/'); return; }
+    if (session.needsNda) {
+      $('nda-email').value = session.email;
+      nda.hidden = false;
+      $('nda-name').focus();
+    } else {
+      await openRoom();
+    }
+  } catch (error) {
+    $('room-error').hidden = false;
+    $('room-error').textContent = error.message;
+  }
+})();

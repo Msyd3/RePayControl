@@ -83,7 +83,7 @@ export function createApp({env=process.env,store,fetcher=fetch,journal=null}={})
   }
   const handler=async(req,res)=>{
     res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('X-Frame-Options','DENY');res.setHeader('Referrer-Policy','no-referrer');
-    res.setHeader('Content-Security-Policy',"default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
+    res.setHeader('Content-Security-Policy',"default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; frame-src blob:; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
     const url=new URL(req.url,'http://localhost');const origin=req.headers.origin||'';
     if(env.ADMIN_FRONTEND_ORIGIN&&origin===env.ADMIN_FRONTEND_ORIGIN&&url.pathname.startsWith('/api/')&&!['/api/events','/api/server-events','/api/profiles'].includes(url.pathname)){
       res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin');
@@ -141,7 +141,10 @@ export function createApp({env=process.env,store,fetcher=fetch,journal=null}={})
         return json(res,200,{ok:true},{'Set-Cookie':'rc_session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0'});
       }
       if(url.pathname.startsWith('/api/')){
-        if(!authenticated(req))return json(res,401,{error:'Unauthorized'});
+        const role=authenticated(req)?'owner':await dataRoom.controlAccess(req);
+        if(!role)return json(res,401,{error:'Unauthorized'});
+        if(role==='viewer'&&(req.method!=='GET'||!['/api/me','/api/control-report'].includes(url.pathname)))
+          return json(res,403,{error:'هذا الحساب للعرض فقط'});
         if(url.pathname==='/api/users/avatar'&&req.method==='POST'){
           if(!sameOrigin())return json(res,403,{error:'Forbidden'});
           const input=await body(req);
@@ -172,7 +175,7 @@ export function createApp({env=process.env,store,fetcher=fetch,journal=null}={})
           return json(res,202,{accepted:1});
         }
         if(req.method!=='GET')return json(res,405,{error:'Method not allowed'});
-        if(url.pathname==='/api/me')return json(res,200,{authenticated:true});
+        if(url.pathname==='/api/me')return json(res,200,role==='viewer'?{authenticated:true,role}:{authenticated:true});
         if(url.pathname==='/api/control-report'){
           const dashboard=url.searchParams.get('view')==='dashboard';
           const report=dashboard?store.dashboard():store.report(url.searchParams.get('from'),url.searchParams.get('to'));
@@ -194,7 +197,7 @@ export function createApp({env=process.env,store,fetcher=fetch,journal=null}={})
         return json(res,404,{error:'Not found'});
       }
       if(req.method!=='GET'&&req.method!=='HEAD')return json(res,405,{error:'Method not allowed'});
-      const assets={'/dataroom':'dataroom/index.html','/dataroom/':'dataroom/index.html','/dataroom/room.css':'dataroom/room.css','/dataroom/room.js':'dataroom/room.js','/runtime-config.js':'runtime-config.js','/assets/repay-logo.png':'assets/repay-logo.png','/':'index.html','/index.html':'index.html','/dashboard.js':'dashboard.js','/styles.css':'styles.css','/export-pdf.js':'export-pdf.js','/vendor/pdf-lib.min.js':'vendor/pdf-lib.min.js','/vendor/html2canvas.min.js':'vendor/html2canvas.min.js','/repay-control.js':'repay-control.js','/fonts/Tajarib-Regular.otf':'fonts/Tajarib-Regular.otf','/fonts/Tajarib-Bold.otf':'fonts/Tajarib-Bold.otf','/fonts/Tajarib-License.pdf':'fonts/Tajarib-License.pdf'};
+      const assets={'/dataroom':'dataroom/index.html','/dataroom/':'dataroom/index.html','/dataroom/room.css':'dataroom/room.css','/dataroom/room.js':'dataroom/room.js','/control-entry.js':'control-entry.js','/runtime-config.js':'runtime-config.js','/assets/repay-logo.png':'assets/repay-logo.png','/':'index.html','/index.html':'index.html','/dashboard.js':'dashboard.js','/styles.css':'styles.css','/export-pdf.js':'export-pdf.js','/vendor/pdf-lib.min.js':'vendor/pdf-lib.min.js','/vendor/html2canvas.min.js':'vendor/html2canvas.min.js','/repay-control.js':'repay-control.js','/fonts/Tajarib-Regular.otf':'fonts/Tajarib-Regular.otf','/fonts/Tajarib-Bold.otf':'fonts/Tajarib-Bold.otf','/fonts/Tajarib-License.pdf':'fonts/Tajarib-License.pdf'};
       const avatarAsset=/^\/assets\/avatars\/remoji-(0[1-9]|10)-still\.svg$/.test(url.pathname);
       const asset=avatarAsset?url.pathname.slice(1):assets[url.pathname];if(!asset)return json(res,404,{error:'Not found'});
       const types={'.svg':'image/svg+xml','.png':'image/png','.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.otf':'font/otf','.pdf':'application/pdf'};

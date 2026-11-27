@@ -9,10 +9,10 @@ await mkdir('dist-pages',{recursive:true});await cp('public','dist-pages',{recur
 let html=await readFile('public/index.html','utf8');html=html.replace(/(src|href)="\//g,'$1="./');
 const css=(await readFile('public/styles.css','utf8')).replaceAll("url('/","url('./");await writeFile('dist-pages/styles.css',css);
 await writeFile('dist-pages/runtime-config.js',`window.REPAY_CONTROL_API_ORIGIN=${JSON.stringify(url?.origin||'')};\nwindow.REPAY_DATAROOM_API_ORIGIN="https://repaycontrol-trlhqd.tarout.app";\nwindow.REPAY_CONTROL_FRONTEND_ONLY=${!url};\n`);
-for(const file of ['dashboard.js','export-pdf.js','runtime-config.js','styles.css']){
+for(const file of ['dashboard.js','control-entry.js','export-pdf.js','runtime-config.js','styles.css']){
   const content=await readFile('dist-pages/'+file);
   const version=createHash('sha256').update(content).digest('hex').slice(0,12);
-  html=html.replace(`"./${file}"`,`"./${file}?v=${version}"`);
+  html=html.replace(new RegExp('"\\./'+file.replaceAll('.','\\.')+'(?:\\?[^"]*)?"'),`"./${file}?v=${version}"`);
 }
 await writeFile('dist-pages/index.html',html);
 await writeFile('dist-pages/.nojekyll','');await writeFile('dist-pages/CNAME','control.repay.sa\n');

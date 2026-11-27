@@ -14,6 +14,7 @@
   "dependencies": {
     "aws4": "1.13.2",
     "bidi-js": "1.0.3",
+    "mammoth": "1.11.0",
     "pdfkit": "0.17.2"
   }
 }
