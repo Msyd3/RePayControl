@@ -4,7 +4,12 @@
 .nda-card{width:100%;max-width:720px;background:#fff;border:1px solid #e5e5e5;border-radius:12px;padding:32px 36px}.nda-card .login-logo{margin-bottom:20px}.nda-card h1{font-size:24px;text-align:center;margin:0 0 8px}.nda-card>p{text-align:center}.nda-document{background:#fafafa;border:1px solid #e7e7e7;border-radius:8px;padding:20px;margin:24px 0;min-height:120px;max-height:420px;overflow:auto;font-size:13px;line-height:1.9;white-space:pre-wrap}.nda-card form>label:not(.nda-consent){display:block;font-size:12px;margin:15px 0 8px}.nda-card input:not([type=checkbox]){width:100%;padding:12px;border:1px solid #ddd;border-radius:6px;font-size:14px}.nda-card input[readonly]{background:#fafafa}.nda-consent{display:flex;align-items:center;gap:10px;margin:20px 0;font-size:12px}.nda-consent input{width:17px;height:17px;accent-color:#111}.nda-card .primary,.nda-decline{width:100%}.nda-decline{background:none;border:0;color:#777;padding:14px;font-size:12px}.nda-card button:disabled{cursor:not-allowed}@media(max-width:520px){.nda-card{padding:24px 18px}.nda-card h1{font-size:20px}}
 .room-admin-tools{display:flex;gap:10px;align-items:center;margin:18px 0;flex-wrap:wrap}.room-admin-tools span{font-size:12px;color:#666}.room-files{margin-top:18px}.room-file{display:block;width:100%;text-align:right;border:0;border-bottom:1px solid #e7e7e7;background:white;padding:16px;font-size:14px}.room-file:last-child{border-bottom:0}#password-form[hidden]{display:none}
 .room-folder-card,.room-file-card{position:relative;min-width:0;background:#ededed;border-radius:16px}
-.room-folder-card .room-folder{background:none;border:0;padding-inline-end:46px}
+.room-folder-card{display:flex;align-items:center;gap:2px;padding-inline-end:6px}
+.room-folder-card .room-folder{flex:1;min-width:0;background:none;border:0;padding:12px 8px 12px 4px;gap:8px}
+.room-folder .folder-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:start}
+.room-folder-card .file-menu{position:relative;inset:auto;flex:none}
+.room-folder-card .file-menu summary{display:grid;place-items:center;width:28px;height:44px;line-height:1}
+.room-folder-card .file-menu button{top:100%}
 .room-folder .folder-number{display:grid;place-items:center;flex:0 0 29px;width:29px;height:29px;border-radius:50%;background:#555;color:#fff;font:700 13px/1 Tajarib,sans-serif;font-variant-numeric:tabular-nums}
 .room-folder-card .room-folder:hover{background:#e2e2e2}
 .room-add-folder{border:0;border-radius:8px;background:#dedede;color:#303030;padding:10px 16px;min-height:44px}
