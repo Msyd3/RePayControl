@@ -1,12 +1,13 @@
+import {normalizeDigits} from './auth.mjs';
 import { taroutStorage } from './tarout-storage.mjs';
 import {createNdaPdf} from './nda-pdf.mjs';
-import {randomBytes,randomInt,createHmac,createCipheriv,createDecipheriv,createHash,timingSafeEqual} from 'node:crypto';
+import {randomBytes,createCipheriv,createDecipheriv,createHash,timingSafeEqual} from 'node:crypto';
 const ADMIN='m@repay.sa', VERSION='NDA-v1';
 const NDA_TEXT="وحيث كانت طبيعة العمل المتفق عليه بين الطرفين تقتضي كشف الطرف الأول عن جزء معلوماته السرية للطرف الثاني واطلاعه عليها، لذا فقد اتفق الطرفان على ما يلي:\n\n1- يقر كلا الطرفين أن هذه الاتفاقية قد تحررت بغية حماية الملكية المشروعة والأعمال التجارية وغيرها من المصالح التي تخص كل طرف ويقصد بذلك أن تكون ملزمة وواجبة النفاذ.\n\n2- لأغراض هذه الاتفاقية:\n\n2-1 يقصد \"بالمعلومات السرية\" كافة المعلومات غير العامة والبيانات والوثائق بجميع أنواعها وفي أي شكل من أشكالها، ويشمل ذلك على سبيل المثال لا الحصر (أ) المعلومات المصرفية والشخصية والمالية لطرف ما أو عملاؤه (ب) المعلومات المحددة أو المفصح عنها صراحة أو ضمنا على أنها سرية (ج) المعلومات المتعارف عليها بشكل تقليدي في الأعمال التجارية لطرف ما كأسرار تجارية، (د) كافة أشكال وأنماط المعلومات المالية أو التجارية أو الفنية أو التشغيلية أو الهندسية بما في ذلك المنتجات والخدمات والمشورات والوسائل والتقنيات والعمليات والإجراءات والبرامج بغض النظر عن ما إذا كانت نسخ ورقية أو إلكترونية أو وسيط تخزين غير مادي، (هـ) كافة النسخ التي يتم توفيرها أو الإفصاح عنها من جانب طرف ما للطرف الآخر سواء خطيا أم شفهيا أم إلكترونيا أو بأي وسائل أخرى، وذلك في سياق التفاوض بشأن اتفاقية أو مذكرة تفاهم أو إبرامهما، وسواء تم إبرام أي منهما أم لا، أو في سياق إبرام أو تنفيذ أو تطبيق هذه الاتفاقية أو غيرها من الاتفاقيات المبرمة أو المنفذة فيما بعد.\n\n2-2 يقصد \"بالطرف\" أي من الطرفين الموقعين على هذه الاتفاقية، أو غيرها من الاتفاقيات المبرمة فيما بعد، وشركته القابضة أو الأم وشركاته التابعة للمجموعة، والموظفين بها والمتعهدون للطرف المعينين من جانبه لتقديم المشورة أو تنفيذ أو إجراء الأعمال أو الخدمات ذات الصلة بالمشروع.\n\n2-3 يقصد بالمشروع: مراجعة وتطوير الصيغ القياسية لنماذج العقود والاتفاقيات.\n\n3- يحق لكل طرف الاطلاع على المعلومات السرية واستخدامها للغرض الخاص بالمشروع فقط.\n\n3-1 لا يقوم أي طرف بنسخ أو إعادة إنتاج أي مادة تحتوي على معلومات سرية. ويتعين على أي منهما بناء على طلب الطرف الآخر إعادة كافة المواد أو المعلومات السرية في أي وقت أو التخلص منها عند الطلب دون أي تأخير غير مبرر.\n\n3-2 لا يجوز لأي طرف الإفصاح عن اسم الطرف الآخر (كمرجع) في أي نقاش أو عرض تقديمي أو حملة تسويقية لأي طرف ثالث دون الحصول على موافقة الطرف الآخر خطيا.\n\n3-3 في حالة قام أحد الطرفين بانتهاك أي من الشروط المنصوص عليها في هذه الاتفاقية بأي شكل من الأشكال، يكون ذلك الطرف مسؤولا عن تعويض الطرف الآخر فورا وعلى نحو كاف ودون المساس بأي من الحقوق القانونية التي قد تتاح للطرف الآخر نتيجة لهذا الانتهاك الوشيك أو الفعلي.\n\n4- يقوم كلا الطرفين بما يلي:\n\n4-1 الاحتفاظ بالمعلومات السرية في سياج من السرية التامة وتقييد إطلاع الموظفين أو الوكلاء أو المتنازل لهم عليها استنادا إلى احتياجهم لمعرفتها تحقيقا لأغراض المشروع، شريطة أن يكون هؤلاء الموظفين أو الوكلاء أو المتنازل لهم أو غير ذلك من الشركات التابعة المحددة في البند 2-2 أعلاه قد تم تعيينهم حسب الأصول القانونية من جانب الطرف المفوض بموجب التزامات السرية والقيود التي تعادل معايير هذه الاتفاقية.\n\n4-2 الامتناع عن استخدام المعلومات السرية بموجب هذه الاتفاقية لأي غرض آخر بخلاف أغراض هذا المشروع.\n\n4-3 عدم الكشف عن المعلومات السرية أو تحرير نسخ منها أو الإفصاح عنها للغير دون الحصول على الموافقة الخطية المسبقة لكلا الطرفين.\n\n5- تظل التزامات السرية الملزمة على كلا الطرفين بموجب هذه الاتفاقية قائمة طيلة مدة المشروع وبعد انتهاء المشروع المتفق عليه إلى حين إنهاء الطرفين لها بموجب اتفاق كتابي.\n\n6- بغض النظر عن أي شيء يرد على خلاف ذلك في هذه الاتفاقية، لا يتعهد أي من الطرفين بأي التزام يتعلق بأي من المعلومات السرية الخاصة بالطرف الآخر أو أي جزء، عندما تكون:\n\n• متاحة للعامة من دون إخلال أو إهمال غير مشروع من الطرف المستلم لتلك المعلومات؛\n• تم الحصول عليه بشكل قانوني من طرف آخر غير ملزم بالحفاظ على المعلومات السرية كملكية أو سرية؛\n• معروفة سلفا دون أي التزام بموجب هذه الاتفاقية للحفاظ عليها في سياج من السرية؛\n• تم تطويرها على نحو مستقل بشكل أو طريقة لا تشكل انتهاكا لهذه الاتفاقية.\n• تم الكشف عنها من جانب الطرف المستلم لها امتثالا لقرار أو توجيه محكمة أو هيئة حكومية أو جهة تنظيمية عامة.\n\n7- لا تمنح تحت هذه الاتفاقية أي من حقوق العلامة التجارية أو براءة اختراع أو حق نشر أو أي حق آخر من حقوق الملكية الفكرية أو يفترض منحها ضمنا بموجب الإفصاح أو في المعلومات السرية المفصح عنها.\n\n8- لا يجوز لأي طرف التنازل عن أي من حقوقه أو التزاماته المنصوص عليها بموجب هذه الاتفاقية أو نقلها أو استبدالها كليا أو جزئيا إلا بناء على موافقة خطية مسبقة من الطرف الآخر.\n\n9- تجري كافة المراسلات خطيا وتسلم باليد مقابل إيصال بالاستلام أو بموجب بريد مسجل مصادق عليه مسبقا يتم إرساله إلى المكتب المسجل للطرف وفقا لما ذكر أعلاه.\n\n10- تخضع هذه الاتفاقية في كافة أوجهها لقوانين المملكة العربية السعودية ولوائحها، جميع النزاعات الناشئة عن هذا الاتفاقية من اختصاص الجهات القضائية بالمملكة العربية السعودية.";
 const NDA_FOLDER='private-nda';
 const folders=['Registration','Business Info','Legal','Branding','Financial Data','Market','Product & Technology','PI','Partnerships','Marketing','HR','Legal','KPIs','Cap Table'];
 export function createDataRoom(env,fetcher=fetch){
- const codes=new Map(),sessions=new Map(),limits=new Map();let serial=Promise.resolve();
+ const sessions=new Map(),limits=new Map();let serial=Promise.resolve();
  const sharedStorage = env.DATAROOM_STORAGE_MODE === 'shared';
  const dedicatedStorage = !env.DATAROOM_STORAGE_MODE || env.DATAROOM_STORAGE_MODE === 'dedicated';
  const sharedBucket = sharedStorage ? taroutStorage(env, fetcher) : null;
@@ -18,9 +19,9 @@ export function createDataRoom(env,fetcher=fetch){
   }, fetcher)
   : null;
  const backend = sharedBucket || dedicatedBucket;
- const ready = () => Boolean(backend && env.DATAROOM_ENCRYPTION_KEY?.length >= 32 &&
-  env.DATAROOM_EMAIL_API_KEY && env.DATAROOM_FROM_EMAIL);
- const roleFor=(db,email)=>{if(email===ADMIN)return 'owner';const i=db.invites[email];return i&&!i.revokedAt&&Date.parse(i.expiresAt)>Date.now()?i.role:null;};
+ const adminPin = normalizeDigits(env.DATAROOM_ADMIN_PASSWORD || env.ADMIN_PASSWORD);
+ const ready = () => Boolean(backend && env.DATAROOM_ENCRYPTION_KEY?.length >= 32 && adminPin.length >= 4);
+ const roleFor=(db,email)=>{if(email===ADMIN)return 'owner';const i=Object.hasOwn(db.invites,email)?db.invites[email]:null;return i&&!i.revokedAt&&Date.parse(i.expiresAt)>Date.now()?i.role:null;};
  const isAdmin=role=>role==='owner'||role==='admin';
  const err=(status,message)=>Object.assign(new Error(message),{status});
  const key=()=>createHash('sha256').update(env.DATAROOM_ENCRYPTION_KEY).digest();
@@ -39,13 +40,44 @@ export function createDataRoom(env,fetcher=fetch){
  async function body(req,max=16384){let size=0,chunks=[];for await(const c of req){size+=c.length;if(size>max)throw err(413,'File too large');chunks.push(c);}try{return JSON.parse(Buffer.concat(chunks).toString());}catch{throw err(400,'Invalid request');}}
  function throttle(k,max,window){const now=Date.now();if(limits.size>5000){for(const [id,v] of limits)if(v.until<now)limits.delete(id);if(limits.size>5000)throw err(429,'Try again later');}let v=limits.get(k);if(!v||v.until<now){v={n:0,until:now+window};limits.set(k,v);}if(++v.n>max)throw err(429,'Too many attempts');}
  function cleanName(s){if(typeof s!=='string'||!s.trim()||s.length>180||/[\\/\x00-\x1f]/.test(s))throw err(400,'Invalid name');return s.trim();}
- function session(req){const token=(req.headers.authorization||'').replace(/^Bearer /,'');const s=sessions.get(token);if(!s||s.exp<Date.now())throw err(401,'Verify email first');return s;}
+ function session(req){const token=(req.headers.authorization||'').replace(/^Bearer /,'');const s=sessions.get(token);if(!s||s.exp<Date.now())throw err(401,'Sign in first');return s;}
  return async function handle(req,res,url,json,sameOrigin){
-  if(!ready())return json(res,503,{error:'Data room email and storage are not configured'});
+  if(!ready())return json(res,503,{error:'Data room access and storage are not configured'});
   if(req.method==='POST'&&!sameOrigin())return json(res,403,{error:'Forbidden'});
   const route=url.pathname.slice('/api/dataroom/'.length),remote=req.socket.remoteAddress||'unknown';
-  if(route==='request-code'&&req.method==='POST'){const {email:raw}=await body(req);const email=String(raw||'').trim().toLowerCase();throttle('send:'+remote,10,900000);throttle('email:'+email,3,900000);if(!roleFor(await readIndex(),email))return json(res,403,{error:'غير مصرح لك بالدخول'});const code=String(randomInt(100000,1000000));const r=await fetcher('https://api.resend.com/emails',{method:'POST',headers:{Authorization:'Bearer '+env.DATAROOM_EMAIL_API_KEY,'Content-Type':'application/json'},body:JSON.stringify({from:env.DATAROOM_FROM_EMAIL,to:[email],subject:'RePay Data Room verification',text:'Your verification code is '+code+'. It expires in 10 minutes.'}),signal:AbortSignal.timeout(12000)});if(!r.ok)throw err(503,'Unable to send verification email');codes.set(email,{hash:createHmac('sha256',key()).update(email+code).digest(),exp:Date.now()+600000,tries:0});return json(res,200,{ok:true});}
-  if(route==='verify-code'&&req.method==='POST'){const data=await body(req),email=String(data.email||'').trim().toLowerCase();throttle('verify:'+remote,30,900000);const c=codes.get(email);if(!c||c.exp<Date.now()||++c.tries>5||!timingSafeEqual(c.hash,createHmac('sha256',key()).update(email+String(data.code||'')).digest()))throw err(401,'Invalid or expired code');const db=await readIndex();const role=roleFor(db,email);if(!role)throw err(403,'غير مصرح لك بالدخول');const accepted=db.acceptances[email];codes.delete(email);await mutate(db=>{const i=db.invites[email];if(i){i.firstLoginAt??=new Date().toISOString();i.lastLoginAt=new Date().toISOString();}});for(const [t,s] of sessions)if(s.exp<Date.now())sessions.delete(t);const token=randomBytes(32).toString('hex');sessions.set(token,{email,exp:Date.now()+3600000});return json(res,200,{token,role,admin:isAdmin(role),needsNda:!isAdmin(role)&&accepted?.version!==VERSION,name:isAdmin(role)?'Admin':accepted?.name||''});}
+  if(route==='login'&&req.method==='POST'){
+   const data=await body(req);
+   const email=String(data.email||'').trim().toLowerCase();
+   throttle('login:'+remote,30,900000);
+   const access=await mutate(db=>{
+    const role=roleFor(db,email);
+    if(!role)throw err(403,'غير مصرح لك بالدخول');
+    if(isAdmin(role)){
+     if(data.password===undefined)return {requiresPassword:true};
+     const attemptKey='admin-password:'+remote;
+     throttle(attemptKey,5,900000);
+     const candidate=normalizeDigits(data.password);
+     const expected=Buffer.from(adminPin);
+     const supplied=Buffer.from(candidate);
+     if(supplied.length!==expected.length||!timingSafeEqual(supplied,expected)){
+      throw err(401,'كلمة المرور غير صحيحة');
+     }
+     limits.delete(attemptKey);
+    }
+    const invite=db.invites[email];
+    if(invite){
+     invite.firstLoginAt??=new Date().toISOString();
+     invite.lastLoginAt=new Date().toISOString();
+    }
+    return {role,accepted:db.acceptances[email]};
+   });
+   if(access.requiresPassword)return json(res,200,access);
+   const {role,accepted}=access;
+   for(const [token,session] of sessions)if(session.exp<Date.now())sessions.delete(token);
+   const token=randomBytes(32).toString('hex');
+   sessions.set(token,{email,exp:Date.now()+3600000});
+   return json(res,200,{token,role,admin:isAdmin(role),needsNda:!isAdmin(role)&&accepted?.version!==VERSION,name:isAdmin(role)?'Admin':accepted?.name||''});
+  }
   const s=session(req);const currentDb=await readIndex();const role=roleFor(currentDb,s.email);if(!role)throw err(403,'انتهت أو ألغيت صلاحية الوصول');const admin=isAdmin(role);
   if(route==='logout'&&req.method==='POST'){sessions.delete((req.headers.authorization||'').slice(7));return json(res,200,{ok:true});}
   if(route==='accept'&&req.method==='POST'){
@@ -53,7 +85,7 @@ export function createDataRoom(env,fetcher=fetch){
    const d=await body(req);if(d.agree!==true||d.version!==VERSION)throw err(400,'NDA acceptance required');const name=cleanName(d.name);
    const record=await mutate(async db=>{const old=db.acceptances[s.email];if(old?.version===VERSION)return old;
     const acceptedAt=new Date().toISOString(),id=randomBytes(16).toString('hex');
-    const record={name,email:s.email,version:VERSION,acceptedAt,method:'verified email OTP and explicit electronic acceptance',agreementHash:createHash('sha256').update(NDA_TEXT).digest('hex'),fileId:id};
+    const record={name,email:s.email,version:VERSION,acceptedAt,method:'declared email and explicit electronic acceptance',agreementHash:createHash('sha256').update(NDA_TEXT).digest('hex'),fileId:id};
     const bytes=await createNdaPdf(NDA_TEXT,record);
     const f={id,name:'NDA - '+s.email+' - '+VERSION+'.pdf',parent:NDA_FOLDER,size:bytes.length,private:true};
     await storage('files/'+id+'.bin','PUT',seal(bytes));db.files.push(f);db.acceptances[s.email]=record;return record;

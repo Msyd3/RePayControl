@@ -5,11 +5,41 @@ let email='',token='',admin=false,db={folders:[],files:[]},current=null;
 async function api(route,data){const r=await fetch(origin+'/api/dataroom/'+route,{method:data===undefined?'GET':'POST',headers:{...(token?{Authorization:'Bearer '+token}:{}),...(data===undefined?{}:{'Content-Type':'application/json'})},body:data===undefined?undefined:JSON.stringify(data),credentials:'omit',cache:'no-store'});if(!r.ok){let d={};try{d=await r.json()}catch{}throw Error(d.error||'تعذر الاتصال');}return r.json();}
 async function busy(form,fn,status){const b=form.querySelector('button');b.disabled=true;$(status).textContent='';try{await fn()}catch(e){$(status).textContent=e.message}finally{b.disabled=false;if(form.id==='nda-form')updateNda()}}
 function updateNda(){next.disabled=!token||!agree.checked||!$('nda-name').value.trim();}
-$('room-form').addEventListener('submit',e=>{e.preventDefault();busy(e.target,async()=>{email=$('email').value.trim().toLowerCase();await api('request-code',{email});$('room-form').hidden=true;$('code-form').hidden=false;$('room-code').focus();},'login-status')});
-$('code-form').addEventListener('submit',e=>{e.preventDefault();busy(e.target,async()=>{const r=await api('verify-code',{email,code:$('room-code').value});token=r.token;admin=r.admin;if(!r.needsNda){await enterRoom(r.name);return;}login.hidden=true;nda.hidden=false;$('nda-email').value=email;$('nda-name').focus();updateNda()},'code-status')});
+async function signIn(password){
+ const result=await api('login',{email,password});
+ if(result.requiresPassword){
+  $('room-form').hidden=true;
+  $('password-form').hidden=false;
+  $('room-password').focus();
+  return;
+ }
+ token=result.token;
+ admin=result.admin;
+ if(!result.needsNda){await enterRoom(result.name);return;}
+ login.hidden=true;
+ nda.hidden=false;
+ $('nda-email').value=email;
+ $('nda-name').focus();
+ updateNda();
+}
+$('room-form').addEventListener('submit',event=>{
+ event.preventDefault();
+ email=$('email').value.trim().toLowerCase();
+ void busy(event.target,()=>signIn(),'login-status');
+});
+$('room-password').addEventListener('input',event=>{
+ const input=event.target;
+ input.value=input.value
+  .replace(/[٠-٩]/g,digit=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)))
+  .replace(/[۰-۹]/g,digit=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)));
+});
+$('password-form').addEventListener('submit',event=>{
+ event.preventDefault();
+ void busy(event.target,()=>signIn($('room-password').value),'password-status');
+});
 $('nda-name').addEventListener('input',updateNda);agree.addEventListener('change',updateNda);
 $('nda-form').addEventListener('submit',e=>{e.preventDefault();if(next.disabled)return;busy(e.target,async()=>{const r=await api('accept',{name:$('nda-name').value.trim(),agree:true,version:'NDA-v1'});await enterRoom(r.name)},'nda-status')});
-async function reset(){try{if(token)await api('logout',{})}catch{}token='';email='';admin=false;db={folders:[],files:[]};current=null;app.hidden=true;nda.hidden=true;login.hidden=false;$('room-form').hidden=false;$('code-form').hidden=true;for(const id of ['email','room-code','nda-name','nda-email'])$(id).value='';agree.checked=false;updateNda();}
+async function reset(){try{if(token)await api('logout',{})}catch{}token='';email='';admin=false;db={folders:[],files:[]};current=null;app.hidden=true;nda.hidden=true;login.hidden=false;$('room-form').hidden=false;$('password-form').hidden=true;for(const id of ['email','room-password','nda-name','nda-email'])$(id).value='';agree.checked=false;updateNda();}
 $('nda-decline').addEventListener('click',reset);$('room-logout').addEventListener('click',reset);
 async function enterRoom(name){await refresh();$('room-email').textContent=email;$('room-name').textContent=name;login.hidden=true;nda.hidden=true;app.hidden=false;show(null);}
 async function refresh(){db=await api('list');admin=db.admin;}
