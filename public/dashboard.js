@@ -35,7 +35,7 @@ function avatarIdFor(user){
 function userName(user){
   const avatarId=avatarIdFor(user);
   const image=avatarImage(avatarId);
-  const avatar=user.waitlistNumber?`<button type="button" class="avatar-trigger" data-avatar-user="${user.waitlistNumber}" aria-label="تغيير ميموجي ${esc(user.name)}">${image}</button>`:image;
+  const avatar=!readOnly&&user.waitlistNumber?`<button type="button" class="avatar-trigger" data-avatar-user="${user.waitlistNumber}" aria-label="تغيير ميموجي ${esc(user.name)}">${image}</button>`:image;
   return `<span class="user-with-avatar">${avatar}<span>${esc(user.name)}</span></span>`;
 }
 function pocUsersTable(users){
@@ -126,7 +126,7 @@ function pdfPages(report){
 const avatarPicker=$('#avatar-picker');
 $('#content').addEventListener('click',event=>{
   const trigger=event.target.closest('[data-avatar-user]');
-  if(!trigger||state.loading)return;
+  if(readOnly||!trigger||state.loading)return;
   const user=state.report.pocSnapshot.users.find(item=>item.waitlistNumber===Number(trigger.dataset.avatarUser));
   if(!user)return;
   avatarPicker.dataset.user=String(user.waitlistNumber);
