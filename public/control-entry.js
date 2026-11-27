@@ -165,7 +165,7 @@ window.setupControlInvitations = api => {
         revoke.textContent = 'حذف';
         revoke.onclick = async () => {
           menu.open = false;
-          if (!confirm('حذف صلاحية ' + invite.email + ' وإيقاف وصوله فورًا؟')) return;
+          if (!await window.confirmControlAction('حذف صلاحية ' + invite.email + ' وإيقاف وصوله فورًا؟')) return;
           try { await api('revoke', {email: invite.email}); await openInvites(); }
           catch (error) { $('invite-status').textContent = error.message; }
         };
@@ -247,3 +247,33 @@ if (sidebarToggle) {
   });
   matchMedia('(max-width: 760px)').addEventListener('change', () => setMenuOpen(false));
 }
+
+
+window.confirmControlAction = message => {
+  const dialog = document.createElement('dialog');
+  dialog.className = 'invites-dialog control-confirm-dialog';
+  dialog.setAttribute('aria-label', 'تأكيد الحذف');
+  dialog.innerHTML = '<p></p><form method="dialog"><button value="cancel" autofocus>إلغاء</button><button value="delete">حذف</button></form>';
+  dialog.querySelector('p').textContent = message;
+  document.body.append(dialog);
+  return new Promise(resolve => {
+    dialog.addEventListener('close', () => {
+      const confirmed = dialog.returnValue === 'delete';
+      dialog.remove();
+      resolve(confirmed);
+    }, {once: true});
+    dialog.showModal();
+  });
+};
+
+document.addEventListener('click', event => {
+  const target = event.target;
+  if (target instanceof HTMLDialogElement && target.open) {
+    const bounds = target.getBoundingClientRect();
+    if (event.clientX < bounds.left || event.clientX > bounds.right ||
+        event.clientY < bounds.top || event.clientY > bounds.bottom) target.close();
+  }
+  document.querySelectorAll('.file-menu[open], .invite-menu[open]').forEach(menu => {
+    if (!menu.contains(target)) menu.open = false;
+  });
+});

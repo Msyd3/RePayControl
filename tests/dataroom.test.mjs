@@ -19,6 +19,11 @@ for (const storageMode of ['shared', 'dedicated', 'attached']) test(storageMode 
  assert.equal((await call('login',{email:'unknown@example.com'})).status,403);
  const admin=await login('m@repay.sa','٥٥٥٥');assert.equal(admin.needsNda,false);assert.equal((await call('list',undefined,admin.token)).status,200);
  assert.equal((await call('invite',{email:'investor@example.com',role:'dataroom',days:7},admin.token)).status,200);
+ const roots=(await call('list',undefined,admin.token)).body.folders.filter(folder=>folder.parent===null);
+ assert.equal(roots.filter(folder=>folder.name==='Legal').length,1);
+ assert.equal((await call('folder',{name:'legal',parent:null},admin.token)).status,409);
+ const numbered=await call('folder',{name:'Next folder',parent:null},admin.token);
+ assert.equal(numbered.body.number,1+Math.max(...roots.map(folder=>folder.number)));
  const inviteFor=async(email,token)=>(await call('invites',undefined,token)).body.invites.find(i=>i.email===email);
  assert.equal((await inviteFor('investor@example.com',admin.token)).status,'Invited');
  const user=await login('investor@example.com');assert.equal(user.needsNda,true);assert.equal((await call('list',undefined,user.token)).status,403);

@@ -35,7 +35,31 @@ export function createDataRoom(env,fetcher=fetch){
   if(!r.ok)throw err(503,'Data room storage unavailable');
   return method==='GET'?open(Buffer.from(await r.arrayBuffer())):null;
  }
- async function readIndex(){const b=await storage('index.bin');const db=b?JSON.parse(b.toString()):{folders:folders.map((name,i)=>({id:'root-'+(i+1),parent:null,name,number:i+1})),files:[],acceptances:{}};db.invites??={};if(!db.folders.some(f=>f.id===NDA_FOLDER))db.folders.push({id:NDA_FOLDER,parent:'root-3',name:'NDA',number:db.folders.filter(f=>f.parent==='root-3').length+1,private:true});return db;}
+ async function readIndex(){
+  const bytes=await storage('index.bin');
+  const db=bytes?JSON.parse(bytes.toString()):{
+   folders:folders.map((name,i)=>({id:'root-'+(i+1),parent:null,name,number:i+1})),
+   files:[],acceptances:{},
+  };
+  db.invites??={};
+  const legal=db.folders.find(f=>f.id==='root-3'&&f.parent===null&&f.name==='Legal');
+  const duplicate=db.folders.find(f=>f.id==='root-12'&&f.parent===null&&f.name==='Legal'&&!f.private);
+  if(legal&&duplicate){
+   let nextNumber=Math.max(0,...db.folders.filter(f=>f.parent===legal.id).map(f=>f.number))+1;
+   for(const folder of db.folders){
+    if(folder.parent!==duplicate.id)continue;
+    folder.parent=legal.id;
+    folder.number=nextNumber++;
+   }
+   for(const file of db.files)if(file.parent===duplicate.id)file.parent=legal.id;
+   db.folders=db.folders.filter(f=>f.id!==duplicate.id);
+  }
+  if(!db.folders.some(f=>f.id===NDA_FOLDER)){
+   const number=1+Math.max(0,...db.folders.filter(f=>f.parent==='root-3').map(f=>f.number));
+   db.folders.push({id:NDA_FOLDER,parent:'root-3',name:'NDA',number,private:true});
+  }
+  return db;
+ }
  function privateFolder(db,id){const seen=new Set();while(id){if(seen.has(id))return true;seen.add(id);const f=db.folders.find(x=>x.id===id);if(!f)return true;if(f.private||f.id===NDA_FOLDER)return true;id=f.parent;}return false;}
  async function mutate(fn){const work=serial.then(async()=>{const db=await readIndex(),result=await fn(db);await storage('index.bin','PUT',seal(Buffer.from(JSON.stringify(db))));return result;});serial=work.catch(()=>{});return work;}
  async function body(req,max=16384){let size=0,chunks=[];for await(const c of req){size+=c.length;if(size>max)throw err(413,'File too large');chunks.push(c);}try{return JSON.parse(Buffer.concat(chunks).toString());}catch{throw err(400,'Invalid request');}}
@@ -209,7 +233,7 @@ export function createDataRoom(env,fetcher=fetch){
    });
    return json(res,200,{ok:true,pending:pending.length-deleted.length});
   }
-  if(route==='folder'&&req.method==='POST'){const d=await body(req),name=cleanName(d.name),parent=d.parent??null;const folder=await mutate(db=>{if(parent!==null&&!db.folders.some(x=>x.id===parent))throw err(404,'Folder not found');const item={id:randomBytes(16).toString('hex'),name,parent,number:1+Math.max(0,...db.folders.filter(x=>x.parent===parent).map(x=>x.number))};db.folders.push(item);return item;});return json(res,201,folder);}
+  if(route==='folder'&&req.method==='POST'){const d=await body(req),name=cleanName(d.name),parent=d.parent??null;const folder=await mutate(db=>{if(parent!==null&&!db.folders.some(x=>x.id===parent))throw err(404,'Folder not found');if(db.folders.some(f=>f.parent===parent&&f.name.toLowerCase()===name.toLowerCase()))throw err(409,'يوجد مجلد بهذا الاسم');const item={id:randomBytes(16).toString('hex'),name,parent,number:1+Math.max(0,...db.folders.filter(x=>x.parent===parent).map(x=>x.number))};db.folders.push(item);return item;});return json(res,201,folder);}
   if(route==='upload'&&req.method==='POST'){const d=await body(req,14*1024*1024),name=cleanName(d.name),parent=d.parent;if(typeof d.data!=='string'||!/^[A-Za-z0-9+/]*={0,2}$/.test(d.data))throw err(400,'Invalid file');const bytes=Buffer.from(d.data,'base64');if(!bytes.length||bytes.length>10*1024*1024)throw err(413,'Maximum 10 MB');const file=await mutate(async db=>{if(!db.folders.some(x=>x.id===parent))throw err(404,'Folder not found');const f={id:randomBytes(16).toString('hex'),name,parent,size:bytes.length};await storage('files/'+f.id+'.bin','PUT',seal(bytes));db.files.push(f);return f;});return json(res,201,file);}
   return json(res,404,{error:'Not found'});
  };
