@@ -13,8 +13,8 @@ export async function createNdaPdf(text,record){
  // Layout logical directional runs separately so fontkit shapes Arabic before
  // placement. The bidi algorithm supplies their visual ordering.
  function line(logical){
-  const levels=bidi.getEmbeddingLevels(logical,'rtl').levels;
-  const order=bidi.getReorderedIndices(logical,{levels,paragraphs:[{start:0,end:logical.length-1,level:1}]});
+  const embedding=bidi.getEmbeddingLevels(logical,'rtl');const levels=embedding.levels;
+  const order=bidi.getReorderedIndices(logical,embedding);
   const runs=[];for(let i=0;i<logical.length;){const start=i,level=levels[i];while(i<logical.length&&levels[i]===level)i++;runs.push({start,end:i,text:logical.slice(start,i),level});}
   const visual=[];for(const idx of order){const run=runs.find(r=>idx>=r.start&&idx<r.end);if(run&&!visual.includes(run))visual.push(run);}
   const y=doc.y;if(y>doc.page.height-70)doc.addPage();
