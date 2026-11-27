@@ -136,3 +136,6 @@
  .login-screen{grid-template-columns:minmax(0,1fr);min-height:100dvh;padding-inline:16px}
  .login-card{width:min(100%,380px);margin-inline:auto;padding-inline:clamp(20px,8vw,36px)}
 }
+
+.control-confirm-dialog{width:min(430px,calc(100vw - 24px))}
+.control-confirm-dialog form{display:flex;gap:8px}

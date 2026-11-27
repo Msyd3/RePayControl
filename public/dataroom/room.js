@@ -96,12 +96,12 @@ function menu(kind, item) {
   const remove = document.createElement('button');
   remove.type = 'button';
   remove.textContent = 'حذف';
-  remove.onclick = () => {
+  remove.onclick = async () => {
     const message = kind === 'folder'
       ? 'حذف «' + item.name + '» والمجلدات والملفات اللي بداخله؟'
       : 'حذف «' + item.name + '»؟';
     details.open = false;
-    if (confirm(message)) void change(() => api('delete', {kind, id: item.id}));
+    if (await window.confirmControlAction(message)) void change(() => api('delete', {kind, id: item.id}));
   };
   details.append(trigger, remove);
   return details;
@@ -113,13 +113,14 @@ function folderCard(folder) {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'room-folder';
-  const icon = document.createElement('span');
-  icon.className = 'folder-icon';
-  icon.setAttribute('aria-hidden', 'true');
+  const number = document.createElement('span');
+  number.className = 'folder-number';
+  number.dir = 'ltr';
+  number.textContent = String(folder.number);
   const label = document.createElement('span');
   label.dir = 'auto';
   label.textContent = folder.name;
-  button.append(icon, label);
+  button.append(number, label);
   button.onclick = () => show(folder.id);
   card.append(button);
   if (db.admin && folder.id !== 'private-nda') card.append(menu('folder', folder));
@@ -214,7 +215,7 @@ function show(id) {
   previews.forEach(url => URL.revokeObjectURL(url));
   previews = [];
   const root = id === null;
-  const folders = db.folders.filter(folder => folder.parent === id);
+  const folders = db.folders.filter(folder => folder.parent === id).sort((a, b) => a.number - b.number);
   $('folder-list').hidden = !root;
   $('folder-detail').hidden = root;
   $('room-admin-tools').hidden = !db.admin;
@@ -252,9 +253,36 @@ async function change(action) {
   }
 }
 
+const folderDialog = $('new-folder-dialog');
+const folderForm = $('new-folder-form');
 $('new-folder').onclick = () => {
-  const name = prompt('اسم المجلد')?.trim();
-  if (name) void change(() => api('folder', {name, parent: current}));
+  if (changing) return;
+  folderForm.reset();
+  $('new-folder-error').textContent = '';
+  folderDialog.showModal();
+};
+folderForm.onsubmit = async event => {
+  event.preventDefault();
+  if (changing) return;
+  const name = $('new-folder-name').value.trim();
+  if (!name) return;
+  const parent = current;
+  const submit = folderForm.querySelector('button');
+  changing = true;
+  submit.disabled = true;
+  try {
+    await api('folder', {name, parent});
+    folderDialog.close();
+    db = await api('list');
+    show(current === null || db.folders.some(folder => folder.id === current) ? current : null);
+    $('admin-status').textContent = 'تمت إضافة المجلد';
+  } catch (error) {
+    $('new-folder-error').textContent = error.message;
+    if (!folderDialog.open) $('admin-status').textContent = error.message;
+  } finally {
+    changing = false;
+    submit.disabled = false;
+  }
 };
 $('upload-file').onclick = () => $('file-input').click();
 $('file-input').onchange = event => {
