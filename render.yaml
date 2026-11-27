@@ -7,7 +7,7 @@ services:
     plan: free
     region: frankfurt
     branch: main
-    buildCommand: node --check src/server.mjs
+    buildCommand: npm install --omit=dev --no-audit --no-fund && node --check src/server.mjs
     startCommand: node src/server.mjs
     healthCheckPath: /health
     autoDeployTrigger: checksPass
