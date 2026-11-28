@@ -40,11 +40,14 @@
 
 .product-section .metrics + .panel{margin-top:20px}
 
-.metrics.measurement-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}
+.metrics.overview-metrics{grid-template-columns:repeat(6,minmax(0,1fr))}
+.overview-metrics .metric{grid-column:span 2;min-width:0}
+.overview-metrics .metric:nth-child(n+4){grid-column:span 3}
 @media screen and (max-width:600px){
-  .metrics.measurement-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .product-section .overview-metrics .metric{padding:10px 8px}
+  .product-section .overview-metrics .metric-label{overflow-wrap:anywhere}
+  .product-section .overview-metrics .metric-value{font-size:clamp(17px,5vw,26px)}
 }
-.pdf-page .metrics.measurement-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}
 
 .user-with-avatar{display:inline-flex;align-items:center;gap:8px}
 .user-avatar{display:block;width:32px;height:32px;object-fit:contain}
