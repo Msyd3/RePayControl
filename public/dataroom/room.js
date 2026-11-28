@@ -164,6 +164,34 @@ async function preview(file, target, active) {
   if (type.startsWith('application/json')) {
     const {pages, acceptance} = await response.json();
     if (!active()) return;
+    if (acceptance) {
+      const record = document.createElement('section');
+      record.className = 'viewer-acceptance';
+      const heading = document.createElement('h3');
+      heading.textContent = 'تم توقيع اتفاقية عدم الإفصاح';
+      const method = document.createElement('p');
+      method.textContent = 'موافقة إلكترونية';
+      const fields = document.createElement('dl');
+      const formatTime = new Intl.DateTimeFormat('en-GB', {
+        dateStyle: 'medium', timeZone: 'Asia/Riyadh',
+      });
+      for (const [label, value] of [
+        ['الاسم', acceptance.name],
+        ['البريد الإلكتروني', acceptance.email],
+        ['تاريخ الموافقة', formatTime.format(new Date(acceptance.acceptedAt))],
+      ]) {
+        const field = document.createElement('dt');
+        const detail = document.createElement('dd');
+        field.textContent = label;
+        detail.dir = 'auto';
+        detail.textContent = value;
+        fields.append(field, detail);
+      }
+      record.append(heading, method, fields);
+      $('viewer-title').textContent = 'اتفاقية عدم الإفصاح';
+      target.replaceChildren(record);
+      return;
+    }
     const documentPages = document.createElement('div');
     documentPages.className = 'viewer-pages';
     const observer = new IntersectionObserver(entries => {
@@ -200,30 +228,6 @@ async function preview(file, target, active) {
       pageObserver.observe(page);
     }
     target.replaceChildren(documentPages);
-    if (acceptance) {
-      const record = document.createElement('section');
-      record.className = 'viewer-acceptance';
-      const heading = document.createElement('h3');
-      heading.textContent = 'سجل الموافقة على اتفاقية عدم الإفصاح';
-      const fields = document.createElement('dl');
-      const formatTime = new Intl.DateTimeFormat('en-GB', {
-        dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Riyadh',
-      });
-      for (const [label, value] of [
-        ['الاسم', acceptance.name],
-        ['البريد الإلكتروني', acceptance.email],
-        ['وقت الموافقة (الرياض)', formatTime.format(new Date(acceptance.acceptedAt))],
-      ]) {
-        const field = document.createElement('dt');
-        const detail = document.createElement('dd');
-        field.textContent = label;
-        detail.dir = 'auto';
-        detail.textContent = value;
-        fields.append(field, detail);
-      }
-      record.append(heading, fields);
-      target.append(record);
-    }
     return;
   }
   if (type.startsWith('text/plain')) {
