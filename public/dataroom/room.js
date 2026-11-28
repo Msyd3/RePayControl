@@ -300,6 +300,8 @@ function show(id) {
   const folders = db.folders.filter(folder => folder.parent === id).sort((a, b) => a.number - b.number);
   $('folder-list').hidden = !root;
   $('folder-detail').hidden = root;
+  $('folder-detail').classList.remove('room-drop-active');
+  $('folder-drop-hint').hidden = !db.admin || root;
   const tools = $('room-admin-tools');
   $(root ? 'root-folder-tools' : 'folder-toolbar').append(tools);
   tools.hidden = !db.admin;
@@ -325,7 +327,7 @@ async function change(action) {
     const result = await action();
     db = await api('list');
     show(current === null || db.folders.some(folder => folder.id === current) ? current : null);
-    status.textContent = result.pending ? 'أزيل الملف من الداتا روم، وحذفه من المخزن قيد المتابعة' : 'تم الحفظ';
+    status.textContent = result.pending ? 'أزيل الملف من الداتا روم، وحذفه من المخزن قيد المتابعة' : result.message || 'تم الحفظ';
   } catch (error) {
     status.textContent = error.message;
   } finally {
@@ -388,26 +390,61 @@ folderForm.onsubmit = async event => {
     submit.disabled = false;
   }
 };
-$('upload-file').onclick = () => $('file-input').click();
-$('file-input').onchange = event => {
-  const file = event.target.files[0];
+const dropZone = $('folder-detail');
+const fileInput = $('file-input');
+const maxFileSize = 10 * 1024 * 1024;
+
+function uploadFiles(files) {
   const parent = current;
-  event.target.value = '';
-  if (!file || !parent) return;
-  if (file.size > 10 * 1024 * 1024) {
-    $('admin-status').textContent = 'الحد الأقصى 10 MB';
-    return;
-  }
+  if (!db?.admin || !parent || changing || !files.length) return;
   void change(async () => {
-    const data = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result).split(',')[1]);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-    return api('upload', {name: file.name, parent, data});
+    let uploaded = 0;
+    const errors = [];
+    for (const file of files) {
+      try {
+        if (!file.size || file.size > maxFileSize) throw Error('حجم الملف يجب أن يكون بين 1 بايت و10 MB');
+        const data = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result).split(',')[1]);
+          reader.onerror = () => reject(Error('تعذرت قراءة الملف'));
+          reader.readAsDataURL(file);
+        });
+        await api('upload', {name: file.name, parent, data});
+        uploaded++;
+      } catch (error) {
+        errors.push(file.name + ' — ' + error.message);
+      }
+    }
+    return {message: [uploaded ? 'تم رفع ' + uploaded + ' من ' + files.length : '', ...errors].filter(Boolean).join(' | ')};
   });
+}
+
+$('upload-file').onclick = () => fileInput.click();
+fileInput.onchange = () => {
+  const files = Array.from(fileInput.files);
+  fileInput.value = '';
+  uploadFiles(files);
 };
+
+const isFileDrag = event => event.dataTransfer?.types.includes('Files');
+window.addEventListener('dragover', event => {
+  if (!isFileDrag(event)) return;
+  event.preventDefault();
+  const canDrop = db?.admin && current && !changing && !viewer.open &&
+    !folderDialog.open && dropZone.contains(event.target);
+  event.dataTransfer.dropEffect = canDrop ? 'copy' : 'none';
+  dropZone.classList.toggle('room-drop-active', Boolean(canDrop));
+});
+dropZone.addEventListener('dragleave', event => {
+  if (!dropZone.contains(event.relatedTarget)) dropZone.classList.remove('room-drop-active');
+});
+window.addEventListener('drop', event => {
+  dropZone.classList.remove('room-drop-active');
+  if (!isFileDrag(event)) return;
+  event.preventDefault();
+  if (dropZone.contains(event.target) && !viewer.open && !folderDialog.open)
+    uploadFiles(Array.from(event.dataTransfer.files));
+});
 
 (async () => {
   if (!token) { location.replace('/'); return; }
