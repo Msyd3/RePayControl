@@ -1,5 +1,5 @@
 FROM node:24-alpine
-RUN apk add --no-cache poppler-utils libreoffice font-dejavu font-noto font-noto-arabic
+RUN apk add --no-cache poppler-utils rsvg-convert libreoffice font-dejavu font-noto font-noto-arabic
 WORKDIR /app
 COPY --chown=node:node package.json ./
 RUN npm install --omit=dev --no-audit --no-fund
