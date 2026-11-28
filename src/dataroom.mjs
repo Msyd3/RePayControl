@@ -46,6 +46,22 @@ async function renderPdfPreview(bytes, page) {
   await rm(directory, {recursive:true,force:true});
  }
 }
+async function renderSvgPreview(bytes) {
+ const directory = await mkdtemp(join(tmpdir(), 'repay-svg-'));
+ try {
+  const source = join(directory, 'preview.svg');
+  await writeFile(source, bytes, {mode:0o600});
+  const {stdout} = await runDocumentTool('rsvg-convert',
+   ['--width=1600', '--height=1600', '--keep-aspect-ratio', source],
+   {encoding:'buffer', timeout:8000, maxBuffer:12*1024*1024,
+    env:{PATH:process.env.PATH, HOME:directory, LANG:'C.UTF-8'}});
+  if (!stdout.length) throw Error('Empty SVG preview');
+  return stdout;
+ } finally {
+  await rm(directory, {recursive:true,force:true});
+ }
+}
+
 const officeFormats = new Set(['.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.odt', '.ods', '.odp', '.rtf']);
 
 async function convertOfficePreview(bytes, extension) {
@@ -267,6 +283,12 @@ export function createDataRoom(env,fetcher=fetch,pdfPreview=renderPdfPreview,con
    else if(/\.(txt|csv|md)$/i.test(file.name))type='text/plain; charset=utf-8';
    else if(bytes.subarray(0,2).toString()==='BM')type='image/bmp';
    else if(bytes.subarray(4,8).toString()==='ftyp' && /^avi[fs]$/.test(bytes.subarray(8,12).toString()))type='image/avif';
+   else if(extension==='.svg'){
+    throttle('document-preview:'+s.email,600,900000);
+    try{bytes=await renderSvgPreview(bytes);}
+    catch{throw err(415,'تعذرت معاينة صورة SVG');}
+    type='image/png';
+   }
    if(!type)throw err(415,'هذا النوع لا يدعم المعاينة');
    res.writeHead(200,{'Content-Type':type,'Content-Disposition':"inline; filename*=UTF-8''"+encodeURIComponent(file.name),'Cache-Control':'no-store'});
    return res.end(bytes);
