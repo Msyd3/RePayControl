@@ -71,7 +71,7 @@ window.setupControlInvitations = api => {
 
   const roleLabels = {dataroom: 'البيانات', viewer: 'متصفح', team: 'فريق', admin: 'مدير'};
   const expiryFormat = new Intl.DateTimeFormat('en-GB', {numberingSystem: 'latn', timeZone: 'Asia/Riyadh', day: '2-digit', month: '2-digit', year: 'numeric'});
-  const defaultMessage = 'مرحبًا،\n\nتمت دعوتك من قبل المدير للوصول إلى منصة بيانات ري باي المالية . افتح الرابط وسجّل الدخول باستخدام البريد الإلكتروني اللي وصلتك عليه الدعوة\n\nhttps://control.repay.sa/';
+  const defaultMessage = 'مرحبًا،\n\nتمت دعوتك من قبل المدير للوصول إلى منصة OS من ري باي المالية . افتح الرابط وسجّل الدخول باستخدام البريد الإلكتروني اللي وصلتك عليه الدعوة\n\n' + new URL('/', location.origin).href + '';
   const statusLabels = {Invited: 'دعوة', Pending: 'انتظار', Accepted: 'قبول', Active: 'قبول', Expired: 'منتهية', Revoked: 'ملغاة'};
 
   async function openInvites() {

@@ -82,7 +82,7 @@ async function openRoom() {
   $('room-sidebar').hidden = false;
   nda.hidden = true;
   app.hidden = false;
-  show(null);
+  show(folderFromUrl());
 
 }
 
@@ -152,7 +152,7 @@ function folderCard(folder) {
     english.textContent = folder.englishName;
     button.append(english);
   }
-  button.onclick = () => show(folder.id);
+  button.onclick = () => show(folder.id, true);
   card.append(button);
   if (db.admin) card.append(menu('folder', folder));
   return card;
@@ -294,7 +294,19 @@ viewer.addEventListener('close', () => {
   $('viewer-content').replaceChildren();
 });
 
-function show(id) {
+function folderFromUrl() {
+  return new URL(location.href).searchParams.get('folder');
+}
+
+function show(id, navigating = false) {
+  if (!db.folders.some(folder => folder.id === id)) id = null;
+  const url = new URL(location.href);
+  if (id === null) url.searchParams.delete('folder');
+  else url.searchParams.set('folder', id);
+  if (url.href !== location.href) {
+    if (navigating) history.pushState(null, '', url);
+    else history.replaceState(null, '', url);
+  }
   current = id;
   const root = id === null;
   const folders = db.folders.filter(folder => folder.parent === id).sort((a, b) => a.number - b.number);
@@ -316,7 +328,10 @@ function show(id) {
   $('folder-empty').hidden = files.length > 0 || folders.length > 0;
 }
 
-$('folder-back').onclick = () => show(db.folders.find(folder => folder.id === current)?.parent ?? null);
+$('folder-back').onclick = () => show(db.folders.find(folder => folder.id === current)?.parent ?? null, true);
+window.addEventListener('popstate', () => {
+  if (db) show(folderFromUrl());
+});
 
 async function change(action) {
   if (changing) return;
