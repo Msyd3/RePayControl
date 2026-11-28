@@ -11,7 +11,22 @@ import {randomBytes,createCipheriv,createDecipheriv,createHash,timingSafeEqual} 
 const ADMIN='m@repay.sa', VERSION='NDA-v1';
 const NDA_TEXT="وحيث كانت طبيعة العمل المتفق عليه بين الطرفين تقتضي كشف الطرف الأول عن جزء معلوماته السرية للطرف الثاني واطلاعه عليها، لذا فقد اتفق الطرفان على ما يلي:\n\n1- يقر كلا الطرفين أن هذه الاتفاقية قد تحررت بغية حماية الملكية المشروعة والأعمال التجارية وغيرها من المصالح التي تخص كل طرف ويقصد بذلك أن تكون ملزمة وواجبة النفاذ.\n\n2- لأغراض هذه الاتفاقية:\n\n2-1 يقصد \"بالمعلومات السرية\" كافة المعلومات غير العامة والبيانات والوثائق بجميع أنواعها وفي أي شكل من أشكالها، ويشمل ذلك على سبيل المثال لا الحصر (أ) المعلومات المصرفية والشخصية والمالية لطرف ما أو عملاؤه (ب) المعلومات المحددة أو المفصح عنها صراحة أو ضمنا على أنها سرية (ج) المعلومات المتعارف عليها بشكل تقليدي في الأعمال التجارية لطرف ما كأسرار تجارية، (د) كافة أشكال وأنماط المعلومات المالية أو التجارية أو الفنية أو التشغيلية أو الهندسية بما في ذلك المنتجات والخدمات والمشورات والوسائل والتقنيات والعمليات والإجراءات والبرامج بغض النظر عن ما إذا كانت نسخ ورقية أو إلكترونية أو وسيط تخزين غير مادي، (هـ) كافة النسخ التي يتم توفيرها أو الإفصاح عنها من جانب طرف ما للطرف الآخر سواء خطيا أم شفهيا أم إلكترونيا أو بأي وسائل أخرى، وذلك في سياق التفاوض بشأن اتفاقية أو مذكرة تفاهم أو إبرامهما، وسواء تم إبرام أي منهما أم لا، أو في سياق إبرام أو تنفيذ أو تطبيق هذه الاتفاقية أو غيرها من الاتفاقيات المبرمة أو المنفذة فيما بعد.\n\n2-2 يقصد \"بالطرف\" أي من الطرفين الموقعين على هذه الاتفاقية، أو غيرها من الاتفاقيات المبرمة فيما بعد، وشركته القابضة أو الأم وشركاته التابعة للمجموعة، والموظفين بها والمتعهدون للطرف المعينين من جانبه لتقديم المشورة أو تنفيذ أو إجراء الأعمال أو الخدمات ذات الصلة بالمشروع.\n\n2-3 يقصد بالمشروع: مراجعة وتطوير الصيغ القياسية لنماذج العقود والاتفاقيات.\n\n3- يحق لكل طرف الاطلاع على المعلومات السرية واستخدامها للغرض الخاص بالمشروع فقط.\n\n3-1 لا يقوم أي طرف بنسخ أو إعادة إنتاج أي مادة تحتوي على معلومات سرية. ويتعين على أي منهما بناء على طلب الطرف الآخر إعادة كافة المواد أو المعلومات السرية في أي وقت أو التخلص منها عند الطلب دون أي تأخير غير مبرر.\n\n3-2 لا يجوز لأي طرف الإفصاح عن اسم الطرف الآخر (كمرجع) في أي نقاش أو عرض تقديمي أو حملة تسويقية لأي طرف ثالث دون الحصول على موافقة الطرف الآخر خطيا.\n\n3-3 في حالة قام أحد الطرفين بانتهاك أي من الشروط المنصوص عليها في هذه الاتفاقية بأي شكل من الأشكال، يكون ذلك الطرف مسؤولا عن تعويض الطرف الآخر فورا وعلى نحو كاف ودون المساس بأي من الحقوق القانونية التي قد تتاح للطرف الآخر نتيجة لهذا الانتهاك الوشيك أو الفعلي.\n\n4- يقوم كلا الطرفين بما يلي:\n\n4-1 الاحتفاظ بالمعلومات السرية في سياج من السرية التامة وتقييد إطلاع الموظفين أو الوكلاء أو المتنازل لهم عليها استنادا إلى احتياجهم لمعرفتها تحقيقا لأغراض المشروع، شريطة أن يكون هؤلاء الموظفين أو الوكلاء أو المتنازل لهم أو غير ذلك من الشركات التابعة المحددة في البند 2-2 أعلاه قد تم تعيينهم حسب الأصول القانونية من جانب الطرف المفوض بموجب التزامات السرية والقيود التي تعادل معايير هذه الاتفاقية.\n\n4-2 الامتناع عن استخدام المعلومات السرية بموجب هذه الاتفاقية لأي غرض آخر بخلاف أغراض هذا المشروع.\n\n4-3 عدم الكشف عن المعلومات السرية أو تحرير نسخ منها أو الإفصاح عنها للغير دون الحصول على الموافقة الخطية المسبقة لكلا الطرفين.\n\n5- تظل التزامات السرية الملزمة على كلا الطرفين بموجب هذه الاتفاقية قائمة طيلة مدة المشروع وبعد انتهاء المشروع المتفق عليه إلى حين إنهاء الطرفين لها بموجب اتفاق كتابي.\n\n6- بغض النظر عن أي شيء يرد على خلاف ذلك في هذه الاتفاقية، لا يتعهد أي من الطرفين بأي التزام يتعلق بأي من المعلومات السرية الخاصة بالطرف الآخر أو أي جزء، عندما تكون:\n\n• متاحة للعامة من دون إخلال أو إهمال غير مشروع من الطرف المستلم لتلك المعلومات؛\n• تم الحصول عليه بشكل قانوني من طرف آخر غير ملزم بالحفاظ على المعلومات السرية كملكية أو سرية؛\n• معروفة سلفا دون أي التزام بموجب هذه الاتفاقية للحفاظ عليها في سياج من السرية؛\n• تم تطويرها على نحو مستقل بشكل أو طريقة لا تشكل انتهاكا لهذه الاتفاقية.\n• تم الكشف عنها من جانب الطرف المستلم لها امتثالا لقرار أو توجيه محكمة أو هيئة حكومية أو جهة تنظيمية عامة.\n\n7- لا تمنح تحت هذه الاتفاقية أي من حقوق العلامة التجارية أو براءة اختراع أو حق نشر أو أي حق آخر من حقوق الملكية الفكرية أو يفترض منحها ضمنا بموجب الإفصاح أو في المعلومات السرية المفصح عنها.\n\n8- لا يجوز لأي طرف التنازل عن أي من حقوقه أو التزاماته المنصوص عليها بموجب هذه الاتفاقية أو نقلها أو استبدالها كليا أو جزئيا إلا بناء على موافقة خطية مسبقة من الطرف الآخر.\n\n9- تجري كافة المراسلات خطيا وتسلم باليد مقابل إيصال بالاستلام أو بموجب بريد مسجل مصادق عليه مسبقا يتم إرساله إلى المكتب المسجل للطرف وفقا لما ذكر أعلاه.\n\n10- تخضع هذه الاتفاقية في كافة أوجهها لقوانين المملكة العربية السعودية ولوائحها، جميع النزاعات الناشئة عن هذا الاتفاقية من اختصاص الجهات القضائية بالمملكة العربية السعودية.";
 const NDA_FOLDER='private-nda';
-const folders=['Registration','Business Info','Legal','Branding','Financial Data','Market','Product & Technology','PI','Partnerships','Marketing','HR','Legal','KPIs','Cap Table'];
+const roomSections=[
+ ['root-2','الشركة والملكية','Company & Ownership'],
+ ['root-15','ملفات المنتج','Product Files'],
+ ['root-7','المنتج والتقنية','Product & Technology'],
+ ['root-16','البنك المركزي','Saudi Central Bank (SAMA)'],
+ ['root-6','أبحاث السوق','Market Research'],
+ ['root-4','الهوية البصرية','Brand Identity'],
+ ['root-5','المالية','Financials'],
+ ['root-3','القانونية','Legal'],
+ ['root-8','الملكية الفكرية','Intellectual Property'],
+ ['root-11','الفريق','Team'],
+];
+const legacySections={
+ 'root-1':'root-2','root-9':'root-2','root-10':'root-4',
+ 'root-12':'root-3','root-13':'root-5','root-14':'root-2',
+};
 const runDocumentTool = promisify(execFile);
 async function renderPdfPreview(bytes, page) {
  const directory = await mkdtemp(join(tmpdir(), 'repay-pdf-'));
@@ -63,21 +78,31 @@ export function createDataRoom(env,fetcher=fetch,pdfPreview=renderPdfPreview){
  async function readIndex(){
   const bytes=await storage('index.bin');
   const db=bytes?JSON.parse(bytes.toString()):{
-   folders:folders.map((name,i)=>({id:'root-'+(i+1),parent:null,name,number:i+1})),
+   folders:[],
    files:[],acceptances:{},
   };
   db.invites??={};
-  const legal=db.folders.find(f=>f.id==='root-3'&&f.parent===null&&f.name==='Legal');
-  const duplicate=db.folders.find(f=>f.id==='root-12'&&f.parent===null&&f.name==='Legal'&&!f.private);
-  if(legal&&duplicate){
-   let nextNumber=Math.max(0,...db.folders.filter(f=>f.parent===legal.id).map(f=>f.number))+1;
-   for(const folder of db.folders){
-    if(folder.parent!==duplicate.id)continue;
-    folder.parent=legal.id;
-    folder.number=nextNumber++;
+  if(!db.bilingualSections){
+   for(const [index,[id,name,englishName]] of roomSections.entries()){
+    let folder=db.folders.find(f=>f.id===id);
+    if(!folder){
+     folder={id,parent:null};
+     db.folders.push(folder);
+    }
+    Object.assign(folder,{name,englishName,number:index+1});
    }
-   for(const file of db.files)if(file.parent===duplicate.id)file.parent=legal.id;
-   db.folders=db.folders.filter(f=>f.id!==duplicate.id);
+   let nextRootNumber=roomSections.length;
+   for(const folder of db.folders){
+    if(folder.parent!==null||roomSections.some(([id])=>id===folder.id))continue;
+    const parent=legacySections[folder.id];
+    if(parent){
+     folder.number=1+Math.max(0,...db.folders.filter(f=>f.parent===parent).map(f=>f.number));
+     folder.parent=parent;
+    }else{
+     folder.number=++nextRootNumber;
+    }
+   }
+   db.bilingualSections=true;
   }
   if(!db.folders.some(f=>f.id===NDA_FOLDER)){
    const number=1+Math.max(0,...db.folders.filter(f=>f.parent==='root-3').map(f=>f.number));
@@ -277,7 +302,7 @@ export function createDataRoom(env,fetcher=fetch,pdfPreview=renderPdfPreview){
    });
    return json(res,200,{ok:true,pending:pending.length-deleted.length});
   }
-  if(route==='folder'&&req.method==='POST'){const d=await body(req),name=cleanName(d.name),parent=d.parent??null;const folder=await mutate(db=>{if(parent!==null&&!db.folders.some(x=>x.id===parent))throw err(404,'Folder not found');if(db.folders.some(f=>f.parent===parent&&f.name.toLowerCase()===name.toLowerCase()))throw err(409,'يوجد مجلد بهذا الاسم');const item={id:randomBytes(16).toString('hex'),name,parent,number:1+Math.max(0,...db.folders.filter(x=>x.parent===parent).map(x=>x.number))};db.folders.push(item);return item;});return json(res,201,folder);}
+  if(route==='folder'&&req.method==='POST'){const d=await body(req),name=cleanName(d.name),parent=d.parent??null;const folder=await mutate(db=>{if(parent!==null&&!db.folders.some(x=>x.id===parent))throw err(404,'Folder not found');if(db.folders.some(f=>f.parent===parent&&[f.name,f.englishName].some(label=>label?.toLowerCase()===name.toLowerCase())))throw err(409,'يوجد مجلد بهذا الاسم');const item={id:randomBytes(16).toString('hex'),name,parent,number:1+Math.max(0,...db.folders.filter(x=>x.parent===parent).map(x=>x.number))};db.folders.push(item);return item;});return json(res,201,folder);}
   if(['rename-folder','rename-file'].includes(route)&&req.method==='POST'){
    const input=await body(req);
    const requestedName=cleanName(input.name);
@@ -289,7 +314,7 @@ export function createDataRoom(env,fetcher=fetch,pdfPreview=renderPdfPreview){
     if(!target)throw err(404,isFile?'الملف غير موجود':'المجلد غير موجود');
     const extension=isFile?(target.name.match(/\.[^.]+$/)?.[0]??''):'';
     const name=cleanName(extension&&!requestedName.toLowerCase().endsWith(extension.toLowerCase())?requestedName+extension:requestedName);
-    if(items.some(f=>f.id!==target.id&&f.parent===target.parent&&f.name.toLowerCase()===name.toLowerCase()))
+    if(items.some(f=>f.id!==target.id&&f.parent===target.parent&&[f.name,f.englishName].some(label=>label?.toLowerCase()===name.toLowerCase())))
      throw err(409,isFile?'يوجد ملف بهذا الاسم':'يوجد مجلد بهذا الاسم');
     target.name=name;
     return target;

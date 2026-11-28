@@ -90,7 +90,10 @@ function menu(kind, item) {
   const details = document.createElement('details');
   details.className = 'file-menu';
   const trigger = document.createElement('summary');
-  trigger.textContent = '⋮';
+  const dots = document.createElement('span');
+  dots.className = 'file-menu-dots';
+  dots.setAttribute('aria-hidden', 'true');
+  trigger.append(dots);
   trigger.setAttribute('aria-label', 'خيارات ' + item.name);
   const actions = document.createElement('div');
   actions.className = 'file-menu-actions';
@@ -139,6 +142,16 @@ function folderCard(folder) {
   label.title = folder.name;
   label.textContent = folder.name;
   button.append(label);
+  if (folder.englishName) {
+    card.classList.add('room-bilingual-card');
+    label.lang = 'ar';
+    const english = document.createElement('span');
+    english.className = 'folder-english-label';
+    english.dir = 'ltr';
+    english.lang = 'en';
+    english.textContent = folder.englishName;
+    button.append(english);
+  }
   button.onclick = () => show(folder.id);
   card.append(button);
   if (db.admin) card.append(menu('folder', folder));

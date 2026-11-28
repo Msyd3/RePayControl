@@ -24,7 +24,18 @@ for (const storageMode of ['shared', 'dedicated', 'attached']) test(storageMode 
  const admin=await login('m@repay.sa','٥٥٥٥');assert.equal(admin.needsNda,false);assert.equal((await call('list',undefined,admin.token)).status,200);
  assert.equal((await call('invite',{email:'investor@example.com',role:'dataroom',days:7},admin.token)).status,200);
  const roots=(await call('list',undefined,admin.token)).body.folders.filter(folder=>folder.parent===null);
- assert.equal(roots.filter(folder=>folder.name==='Legal').length,1);
+ assert.deepEqual(roots.sort((a,b)=>a.number-b.number).map(({name,englishName})=>[name,englishName]),[
+  ['الشركة والملكية','Company & Ownership'],
+  ['ملفات المنتج','Product Files'],
+  ['المنتج والتقنية','Product & Technology'],
+  ['البنك المركزي','Saudi Central Bank (SAMA)'],
+  ['أبحاث السوق','Market Research'],
+  ['الهوية البصرية','Brand Identity'],
+  ['المالية','Financials'],
+  ['القانونية','Legal'],
+  ['الملكية الفكرية','Intellectual Property'],
+  ['الفريق','Team'],
+ ]);
  assert.equal((await call('folder',{name:'legal',parent:null},admin.token)).status,409);
  const numbered=await call('folder',{name:'Next folder',parent:null},admin.token);
  assert.equal(numbered.body.number,1+Math.max(...roots.map(folder=>folder.number)));
