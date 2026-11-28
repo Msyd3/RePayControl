@@ -294,15 +294,50 @@ viewer.addEventListener('close', () => {
   $('viewer-content').replaceChildren();
 });
 
+function folderSlug(folder) {
+  return (folder.englishName || folder.name).normalize('NFKC').toLowerCase()
+    .replace(/[^\p{L}\p{M}\p{N}]+/gu, '-').replace(/^-|-$/g, '') || 'folder';
+}
+
+function folderUrlSegment(folder) {
+  const slug = folderSlug(folder);
+  const ambiguous = db.folders.some(other => other.id !== folder.id &&
+    other.parent === folder.parent && folderSlug(other) === slug);
+  return ambiguous || db.folders.some(item => item.id === slug) ? slug + '~' + folder.id : slug;
+}
+
 function folderFromUrl() {
-  return new URL(location.href).searchParams.get('folder');
+  const route = new URL(location.href).searchParams.get('folder');
+  if (!route) return null;
+  const legacy = db.folders.find(folder => folder.id === route);
+  if (legacy) return legacy.id;
+  let parent = null;
+  for (const segment of route.split('/')) {
+    const folder = db.folders.find(item => item.parent === parent && folderUrlSegment(item) === segment);
+    if (!folder) return null;
+    parent = folder.id;
+  }
+  return parent;
+}
+
+function folderPath(id) {
+  const segments = [];
+  const seen = new Set();
+  while (id !== null && !seen.has(id)) {
+    seen.add(id);
+    const folder = db.folders.find(item => item.id === id);
+    if (!folder) return '';
+    segments.unshift(folderUrlSegment(folder));
+    id = folder.parent;
+  }
+  return id === null ? segments.join('/') : '';
 }
 
 function show(id, navigating = false) {
   if (!db.folders.some(folder => folder.id === id)) id = null;
   const url = new URL(location.href);
   if (id === null) url.searchParams.delete('folder');
-  else url.searchParams.set('folder', id);
+  else url.searchParams.set('folder', folderPath(id));
   if (url.href !== location.href) {
     if (navigating) history.pushState(null, '', url);
     else history.replaceState(null, '', url);
