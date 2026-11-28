@@ -1,9 +1,9 @@
 import {execFile} from 'node:child_process';
-import {mkdtemp, rm, writeFile} from 'node:fs/promises';
+import {mkdir, mkdtemp, readFile, rm, stat, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
-import {join} from 'node:path';
+import {extname, join} from 'node:path';
+import {pathToFileURL} from 'node:url';
 import {promisify} from 'node:util';
-import mammoth from 'mammoth';
 import {normalizeDigits} from './auth.mjs';
 import { taroutStorage } from './tarout-storage.mjs';
 import {createNdaPdf} from './nda-pdf.mjs';
@@ -46,8 +46,40 @@ async function renderPdfPreview(bytes, page) {
   await rm(directory, {recursive:true,force:true});
  }
 }
-export function createDataRoom(env,fetcher=fetch,pdfPreview=renderPdfPreview){
+const officeFormats = new Set(['.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.odt', '.ods', '.odp', '.rtf']);
+
+async function convertOfficePreview(bytes, extension) {
+ const directory = await mkdtemp(join(tmpdir(), 'repay-office-'));
+ try {
+  const profile = join(directory, 'profile');
+  await mkdir(join(profile, 'user'), {recursive:true});
+  await writeFile(join(profile, 'user', 'registrymodifications.xcu'),
+   '<oor:items xmlns:oor="http://openoffice.org/2001/registry">' +
+   '<item oor:path="/org.openoffice.Office.Common/Security/Scripting"><prop oor:name="MacroSecurityLevel" oor:op="fuse"><value>3</value></prop></item>' +
+   '<item oor:path="/org.openoffice.Office.Calc/Content/Update"><prop oor:name="Link" oor:op="fuse"><value>2</value></prop></item>' +
+   '</oor:items>');
+  const source = join(directory, 'document' + extension);
+  const output = join(directory, 'document.pdf');
+  await writeFile(source, bytes, {mode:0o600});
+  const format = ['.xls', '.xlsx', '.ods'].includes(extension)
+   ? 'pdf:calc_pdf_Export:{"SinglePageSheets":{"type":"boolean","value":"true"}}'
+   : 'pdf';
+  await runDocumentTool('soffice', [
+   '-env:UserInstallation=' + pathToFileURL(profile).href,
+   '--headless', '--nologo', '--norestore', '--convert-to', format, '--outdir', directory, source,
+  ], {timeout:25000, maxBuffer:65536, env:{PATH:process.env.PATH, HOME:directory, LANG:'C.UTF-8', SAL_DISABLE_OPENCL:'1'}});
+  if ((await stat(output)).size > 24*1024*1024) throw Error('Preview too large');
+  const pdf = await readFile(output);
+  if (pdf.subarray(0,5).toString() !== '%PDF-') throw Error('Invalid preview');
+  return pdf;
+ } finally {
+  await rm(directory, {recursive:true,force:true});
+ }
+}
+
+export function createDataRoom(env,fetcher=fetch,pdfPreview=renderPdfPreview,convertOffice=convertOfficePreview){
  const sessions=new Map(),limits=new Map();let serial=Promise.resolve();
+ let officePreview;
  const sharedStorage = env.DATAROOM_STORAGE_MODE === 'shared';
  const dedicatedStorage = !env.DATAROOM_STORAGE_MODE || env.DATAROOM_STORAGE_MODE === 'dedicated';
  const sharedBucket = sharedStorage ? taroutStorage(env, fetcher) : null;
@@ -191,14 +223,36 @@ export function createDataRoom(env,fetcher=fetch,pdfPreview=renderPdfPreview){
    let bytes=await storage('files/'+file.id+'.bin');
    if(!bytes)throw err(404,'File not found');
    let type;
-   if(bytes.subarray(0,5).toString()==='%PDF-'){
+   const extension=extname(file.name).toLowerCase();
+   const office=officeFormats.has(extension);
+   if(bytes.subarray(0,5).toString()==='%PDF-' || office){
     const value=url.searchParams.get('page');
     const page=value===null?null:Number(value);
     if(page!==null&&(!Number.isSafeInteger(page)||page<1||page>250))throw err(400,'رقم الصفحة غير صالح');
     throttle('document-preview:'+s.email,600,900000);
     let rendered;
-    try{rendered=await pdfPreview(bytes,page);}
-    catch{throw err(415,'تعذرت معاينة ملف PDF');}
+    try{
+     if(office && bytes.subarray(0,5).toString()!=='%PDF-'){
+      const key=file.id+extension;
+      if(officePreview?.key!==key){
+       if(officePreview?.running)throw err(503,'جارٍ تجهيز معاينة أخرى. حاول مرة أخرى');
+       const entry={key,running:true};
+       officePreview=entry;
+       entry.pdf=convertOffice(bytes,extension).then(pdf=>{
+        entry.running=false;
+        return pdf;
+       },error=>{
+        if(officePreview===entry)officePreview=null;
+        throw error;
+       });
+      }
+      bytes=await officePreview.pdf;
+     }
+     rendered=await pdfPreview(bytes,page);
+    }catch(error){
+     if(error.status===503)throw error;
+     throw err(415,office?'تعذرت معاينة مستند Office':'تعذرت معاينة ملف PDF');
+    }
     if(page===null){
      if(!Number.isSafeInteger(rendered)||rendered<1||rendered>250)throw err(415,'المعاينة تدعم ملفات PDF حتى 250 صفحة');
      return json(res,200,{pages:rendered});
@@ -211,11 +265,8 @@ export function createDataRoom(env,fetcher=fetch,pdfPreview=renderPdfPreview){
    else if(/^GIF8[79]a$/.test(bytes.subarray(0,6).toString()))type='image/gif';
    else if(bytes.subarray(0,4).toString()==='RIFF'&&bytes.subarray(8,12).toString()==='WEBP')type='image/webp';
    else if(/\.(txt|csv|md)$/i.test(file.name))type='text/plain; charset=utf-8';
-   else if(/\.docx$/i.test(file.name)){
-    try{bytes=Buffer.from((await mammoth.extractRawText({buffer:bytes})).value);}
-    catch{throw err(415,'تعذرت معاينة مستند Word');}
-    type='text/plain; charset=utf-8';
-   }
+   else if(bytes.subarray(0,2).toString()==='BM')type='image/bmp';
+   else if(bytes.subarray(4,8).toString()==='ftyp' && /^avi[fs]$/.test(bytes.subarray(8,12).toString()))type='image/avif';
    if(!type)throw err(415,'هذا النوع لا يدعم المعاينة');
    res.writeHead(200,{'Content-Type':type,'Content-Disposition':"inline; filename*=UTF-8''"+encodeURIComponent(file.name),'Cache-Control':'no-store'});
    return res.end(bytes);

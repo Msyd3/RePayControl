@@ -15,7 +15,14 @@ for (const storageMode of ['shared', 'dedicated', 'attached']) test(storageMode 
   assert.equal(bytes.subarray(0,5).toString(),'%PDF-');
   return page===null?3:Buffer.from('mock-rendered-page');
  };
- let handle=createDataRoom(env,fetcher,pdfPreview);
+ let conversions=0;
+ const convertOffice=async(bytes,extension)=>{
+  assert.equal(bytes.toString(),'Office fixture');
+  assert.ok(['.docx','.xlsx','.pptx'].includes(extension));
+  conversions++;
+  return Buffer.from('%PDF-converted');
+ };
+ let handle=createDataRoom(env,fetcher,pdfPreview,convertOffice);
  async function call(route,data,token){const req=Readable.from(data===undefined?[]:[Buffer.from(JSON.stringify(data))]);req.method=data===undefined?'GET':'POST';req.headers={authorization:token?'Bearer '+token:''};req.socket={remoteAddress:'test'};let result;const res={writeHead(status,headers){result={status,headers}},end(body){result.body=body;}};try{await handle(req,res,new URL('https://test/api/dataroom/'+route),(_,status,body)=>{result={status,body};},()=>true);}catch(e){result={status:e.status||500,body:e.message};}return result;}
  async function login(email,password){const r=await call('login',{email,password});assert.equal(r.status,200);return r.body;}
  assert.equal((await login('m@repay.sa')).requiresPassword,true);
@@ -58,7 +65,7 @@ for (const storageMode of ['shared', 'dedicated', 'attached']) test(storageMode 
  const bytes=Buffer.from('Investor presentation');
  const uploaded=await call('upload',{name:'Presentation.txt',parent:'root-2',data:bytes.toString('base64')},admin.token);
  assert.equal(uploaded.status,201);
- handle=createDataRoom(env,fetcher,pdfPreview);
+ handle=createDataRoom(env,fetcher,pdfPreview,convertOffice);
  const newAdmin=await login('m@repay.sa','٥٥٥٥');
  const restored=await call('list',undefined,newAdmin.token);
  assert.equal(restored.body.files.length,2);
@@ -79,6 +86,16 @@ for (const storageMode of ['shared', 'dedicated', 'attached']) test(storageMode 
  assert.equal((await call('list',undefined,newAdmin.token)).body.folders.find(f=>f.id===child.body.id).name,'Nested renamed');
  assert.equal((await call('preview?id='+nested.body.id,undefined,newAdmin.token)).status,200);
 
+ for(const extension of ['docx','xlsx','pptx']){
+  const office=await call('upload',{name:'Preview.'+extension,parent:child.body.id,data:Buffer.from('Office fixture').toString('base64')},newAdmin.token);
+  assert.equal(office.status,201);
+  const route='preview?id='+office.body.id;
+  assert.deepEqual((await call(route,undefined,newAdmin.token)).body,{pages:3});
+  const page=await call(route+'&page=1',undefined,newAdmin.token);
+  assert.equal(page.headers['Content-Type'],'image/jpeg');
+  assert.equal(page.body.toString(),'mock-rendered-page');
+ }
+ assert.equal(conversions,3);
  assert.equal((await call('delete',{kind:'folder',id:child.body.id},newAdmin.token)).body.pending,0);
  assert.equal((await call('preview?id='+nested.body.id,undefined,newAdmin.token)).status,404);
  assert.equal((await call('delete',{kind:'file',id:uploaded.body.id},newAdmin.token)).body.pending,0);
