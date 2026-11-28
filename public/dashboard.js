@@ -172,8 +172,8 @@ $('#export').addEventListener('click',async()=>{if(!state.report||state.exportin
  if(!adminToken){login();return;}
  try{
   const me=await api('/api/me');
-  readOnly=me.role==='viewer';
-  window.applyControlPermissions(readOnly?'viewer':'admin');
+  readOnly=['viewer','team'].includes(me.role);
+  window.applyControlPermissions(readOnly?me.role:'admin');
   $('#open-invites').hidden=readOnly;
   $('#app').classList.toggle('read-only',readOnly);
   $('#export').hidden=readOnly;

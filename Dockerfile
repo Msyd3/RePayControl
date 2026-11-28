@@ -1,4 +1,5 @@
 FROM node:24-alpine
+RUN apk add --no-cache poppler-utils
 WORKDIR /app
 COPY --chown=node:node package.json ./
 RUN npm install --omit=dev --no-audit --no-fund

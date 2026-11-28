@@ -143,7 +143,7 @@ export function createApp({env=process.env,store,fetcher=fetch,journal=null}={})
       if(url.pathname.startsWith('/api/')){
         const role=authenticated(req)?'owner':await dataRoom.controlAccess(req);
         if(!role)return json(res,401,{error:'Unauthorized'});
-        if(role==='viewer'&&(req.method!=='GET'||!['/api/me','/api/control-report'].includes(url.pathname)))
+        if(['viewer','team'].includes(role)&&(req.method!=='GET'||!['/api/me','/api/control-report'].includes(url.pathname)))
           return json(res,403,{error:'هذا الحساب للعرض فقط'});
         if(url.pathname==='/api/users/avatar'&&req.method==='POST'){
           if(!sameOrigin())return json(res,403,{error:'Forbidden'});
@@ -175,7 +175,7 @@ export function createApp({env=process.env,store,fetcher=fetch,journal=null}={})
           return json(res,202,{accepted:1});
         }
         if(req.method!=='GET')return json(res,405,{error:'Method not allowed'});
-        if(url.pathname==='/api/me')return json(res,200,role==='viewer'?{authenticated:true,role}:{authenticated:true});
+        if(url.pathname==='/api/me')return json(res,200,['viewer','team'].includes(role)?{authenticated:true,role}:{authenticated:true});
         if(url.pathname==='/api/control-report'){
           const dashboard=url.searchParams.get('view')==='dashboard';
           const report=dashboard?store.dashboard():store.report(url.searchParams.get('from'),url.searchParams.get('to'));
