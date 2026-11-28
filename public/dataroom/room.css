@@ -3,16 +3,19 @@
 .room-summary{display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid var(--border);padding-bottom:20px}.room-summary .room-title{margin:0}.room-summary .room-identity{align-items:flex-end;text-align:left;border:0;padding:0;min-width:0}.room-grid-item{display:flex;align-items:center;gap:10px;min-width:0}.room-folder-number{flex:none;font-size:13px;color:#888;font-variant-numeric:tabular-nums;direction:ltr}.room-grid-item .room-folder{min-width:0;flex:1}.room-folder span{text-align:left}.room-detail-mode .room-summary,.room-detail-mode #room-logout{display:none}.room-detail-mode .room-header{margin-bottom:12px}@media(max-width:520px){.room-summary{gap:10px}.room-summary .room-note{font-size:9px}.room-summary #room-email{font-size:10px}.room-summary .room-user-name{font-size:11px}.room-grid-item{gap:5px}.room-folder-number{font-size:11px}.room-grid-item .room-folder{padding:10px 8px;gap:6px}}
 .nda-card{width:100%;max-width:720px;background:#fff;border:1px solid #e5e5e5;border-radius:12px;padding:32px 36px}.nda-card .login-logo{margin-bottom:20px}.nda-card h1{font-size:24px;text-align:center;margin:0 0 8px}.nda-card>p{text-align:center}.nda-document{background:#fafafa;border:1px solid #e7e7e7;border-radius:8px;padding:20px;margin:24px 0;min-height:120px;max-height:420px;overflow:auto;font-size:13px;line-height:1.9;white-space:pre-wrap}.nda-card form>label:not(.nda-consent){display:block;font-size:12px;margin:15px 0 8px}.nda-card input:not([type=checkbox]){width:100%;padding:12px;border:1px solid #ddd;border-radius:6px;font-size:14px}.nda-card input[readonly]{background:#fafafa}.nda-consent{display:flex;align-items:center;gap:10px;margin:20px 0;font-size:12px}.nda-consent input{width:17px;height:17px;accent-color:#111}.nda-card .primary,.nda-decline{width:100%}.nda-decline{background:none;border:0;color:#777;padding:14px;font-size:12px}.nda-card button:disabled{cursor:not-allowed}@media(max-width:520px){.nda-card{padding:24px 18px}.nda-card h1{font-size:20px}}
 .room-admin-tools{display:flex;gap:10px;align-items:center;margin:18px 0;flex-wrap:wrap}.room-admin-tools span{font-size:12px;color:#666}.room-files{margin-top:18px}.room-file{display:block;width:100%;text-align:right;border:0;border-bottom:1px solid #e7e7e7;background:white;padding:16px;font-size:14px}.room-file:last-child{border-bottom:0}#password-form[hidden]{display:none}
-.room-folder-card{position:relative;min-width:0;background:#eaeaea;border-radius:16px}
+.room-folder-card{position:relative;min-width:0;background:#eaeaea;border-radius:16px;transition:background .15s}
 .room-folder-card.room-file-card{background:#f1f1f1}
 .room-folder-card{display:flex;align-items:center;gap:2px;padding-inline-end:6px}
 .room-folder-card .room-folder{flex:1;min-width:0;background:none;border:0;padding:12px 8px 12px 4px;gap:8px}
-.room-folder .folder-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:start}
+.room-folder .folder-label{min-width:0;white-space:normal;overflow-wrap:anywhere;line-height:1.55;text-align:start}
 .room-folder-card .file-menu{position:relative;inset:auto;flex:none}
 .room-folder-card .file-menu summary{display:grid;place-items:center;width:28px;height:44px;line-height:1}
-.room-folder-card .file-menu-actions{top:100%}
+.room-folder-card:has(.file-menu[open]){z-index:2}
+.room-folder-card .file-menu-actions{top:auto;bottom:calc(100% + 4px)}
 .room-folder .folder-number{display:grid;place-items:center;flex:0 0 29px;width:29px;height:29px;border-radius:9px;background:#eaeaea;color:#303030;font:700 13px/1 Tajarib,sans-serif;font-variant-numeric:tabular-nums}
-.room-folder-card .room-folder:hover{background:#e2e2e2}
+.room-folder-card:hover,.room-folder-card:hover .folder-number{background:#dedede}
+.room-folder-card.room-file-card:hover{background:#e8e8e8}
+.room-file-card .room-folder{min-height:48px;padding-block:8px}
 .room-add-folder{border:0;border-radius:8px;background:#dedede;color:#303030;padding:6px 12px;min-height:36px;font-size:13px;line-height:1.3}
 .room-add-folder:hover{background:#d3d3d3}
 .room-create-dialog{width:min(430px,calc(100vw - 24px))}
@@ -59,14 +62,17 @@
 .viewer-pages{display:grid;gap:10px}
 .viewer-page{display:grid;place-items:center;min-width:0;min-height:min(75vw,550px);background:#f6f6f6;border-radius:6px;overflow:hidden}
 #viewer-content .viewer-page img{width:100%;height:auto;max-height:none;user-select:none;-webkit-touch-callout:none}
-.viewer-acceptance{margin-top:20px;padding:14px;border-radius:10px;background:#f3f3f3}
-.viewer-acceptance h3{margin:0 0 10px}
-.viewer-acceptance dt{font-weight:700}
-.viewer-acceptance dd{margin:0 0 8px;overflow-wrap:anywhere}
+.viewer-acceptance{padding:clamp(14px,4vw,24px);border-radius:12px;background:#f5f5f5}
+.viewer-acceptance h3{margin:0;font-size:clamp(16px,4vw,21px);line-height:1.6}
+.viewer-acceptance p{margin:4px 0 16px;color:#666;font-size:13px}
+.viewer-acceptance dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:0 12px;margin:0;line-height:1.6}
+.viewer-acceptance dt,.viewer-acceptance dd{margin:0;padding:8px 0;border-block-start:1px solid #e0e0e0}
+.viewer-acceptance dt{color:#626262}
+.viewer-acceptance dd{overflow-wrap:anywhere;font-weight:700}
 
 .room-grid:has(.room-bilingual-card){grid-template-columns:repeat(2,minmax(0,1fr))}
 .room-bilingual-card .room-folder{display:grid;grid-template-columns:29px minmax(0,1fr) minmax(0,1fr)}
-.room-bilingual-card .folder-label,.folder-english-label{white-space:normal;overflow-wrap:anywhere}
+.room-bilingual-card .folder-label,.folder-english-label{white-space:normal;overflow-wrap:anywhere;line-height:1.55}
 .room-bilingual-card .folder-label{text-align:right}
 .room-bilingual-card .folder-english-label{text-align:left}
 .file-menu-dots{width:4px;height:4px;border-radius:50%;background:currentColor;box-shadow:0 -6px currentColor,0 6px currentColor}

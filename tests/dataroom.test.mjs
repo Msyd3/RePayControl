@@ -48,13 +48,12 @@ for (const storageMode of ['shared', 'dedicated', 'attached']) test(storageMode 
  const a=await call('list',undefined,admin.token);const f=a.body.files.find(x=>x.name.endsWith('.pdf'));assert.ok(f);assert.equal(f.parent,'private-nda');
  const manifest=await call('preview?id='+f.id,undefined,admin.token);
  assert.equal(manifest.status,200);
- assert.equal(manifest.body.pages,3);
+ assert.equal(manifest.body.pages,undefined);
  assert.equal(manifest.body.acceptance.name,'Investor Test');
  assert.equal(manifest.body.acceptance.email,'investor@example.com');
  assert.ok(Number.isFinite(Date.parse(manifest.body.acceptance.acceptedAt)));
  const pdf=await call('preview?id='+f.id+'&page=1',undefined,admin.token);
- assert.equal(pdf.status,200);
- assert.equal(pdf.body.toString(),'mock-rendered-page');
+ assert.equal(pdf.status,404);
  const u=await call('list',undefined,user.token);assert.equal(u.body.files.length,0);assert.ok(!u.body.folders.some(x=>x.id==='private-nda'));assert.equal((await call('preview?id='+f.id,undefined,user.token)).status,404);
  const bytes=Buffer.from('Investor presentation');
  const uploaded=await call('upload',{name:'Presentation.txt',parent:'root-2',data:bytes.toString('base64')},admin.token);
@@ -69,8 +68,6 @@ for (const storageMode of ['shared', 'dedicated', 'attached']) test(storageMode 
  assert.deepEqual((await call('preview?id='+uploaded.body.id,undefined,newAdmin.token)).body,bytes);
  assert.equal((await call('rename-file',{id:uploaded.body.id,name:'Forbidden'},user.token)).status,401);
  const again=await login('investor@example.com');assert.equal(again.needsNda,false);assert.equal((await call('accept',{name:'Changed',agree:true,version:'NDA-v1'},again.token)).body.name,'Investor Test');assert.equal((await call('list',undefined,newAdmin.token)).body.files.length,2);
- assert.match(pdf.headers['Content-Disposition'],/^inline;/);
- assert.equal(pdf.headers['Content-Type'],'image/jpeg');
  assert.equal((await call('delete',{kind:'file',id:uploaded.body.id},again.token)).status,403);
  const child=await call('folder',{name:'Nested',parent:'root-2'},newAdmin.token);
  const nested=await call('upload',{name:'Nested.txt',parent:child.body.id,data:bytes.toString('base64')},newAdmin.token);

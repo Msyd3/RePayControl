@@ -183,6 +183,11 @@ export function createDataRoom(env,fetcher=fetch,pdfPreview=renderPdfPreview){
   if(route==='preview'&&req.method==='GET'){
    const file=db.files.find(item=>item.id===url.searchParams.get('id'));
    if(!file||(!admin&&(file.private||privateFolder(db,file.parent))))throw err(404,'File not found');
+   const record=admin?Object.values(db.acceptances).find(item=>item.fileId===file.id):null;
+   if(record){
+    if(url.searchParams.has('page'))throw err(404,'Page not found');
+    return json(res,200,{acceptance:{name:record.name,email:record.email,acceptedAt:record.acceptedAt}});
+   }
    let bytes=await storage('files/'+file.id+'.bin');
    if(!bytes)throw err(404,'File not found');
    let type;
@@ -196,9 +201,7 @@ export function createDataRoom(env,fetcher=fetch,pdfPreview=renderPdfPreview){
     catch{throw err(415,'تعذرت معاينة ملف PDF');}
     if(page===null){
      if(!Number.isSafeInteger(rendered)||rendered<1||rendered>250)throw err(415,'المعاينة تدعم ملفات PDF حتى 250 صفحة');
-     const record=admin?Object.values(db.acceptances).find(item=>item.fileId===file.id):null;
-     const acceptance=record?{name:record.name,email:record.email,acceptedAt:record.acceptedAt}:null;
-     return json(res,200,{pages:rendered,acceptance});
+     return json(res,200,{pages:rendered});
     }
     bytes=rendered;
     type='image/jpeg';
