@@ -52,28 +52,25 @@ function issuesTable(issues){
 function sections(report){
   const snapshot=report.pocSnapshot;
   const pocLabels={users:'عدد المستخدمين',conversations:'عدد المحادثات',transferRequests:'طلبات التحويل المسجّلة'};
-  const pocMetrics=snapshot?.state==='connected'?Object.entries(pocLabels).map(([key,label])=>({label,value:snapshot.metrics[key]})):[];
+  const pocMetrics=Object.entries(pocLabels).map(([key,label])=>({
+    label,value:snapshot?.state==='connected'?snapshot.metrics[key]:null
+  }));
   const google=report.googleAnalytics;
-  const googleMetrics=google?.state==='connected'?[
-    {label:'مستخدمون نشطون',value:google.activeUsers},
-    {label:'الجلسات المتفاعلة',value:google.engagedSessions},
-    {label:'متوسط مدة التفاعل لكل جلسة',value:google.averageEngagementSeconds,unit:'seconds'},
-    {label:'المشاهدات',value:google.views}
-  ]:[];
-  const issues=project=>({title:'الأخطاء وأسباب الفشل اليوم',rows:report.issues.filter(issue=>issue.project===project),markup:issuesTable});
-  return [
-    {title:'بيانات القياس',layout:'measurement',
-      metrics:googleMetrics,empty:google?.state==='error'?'تعذر تحديث بيانات Google Analytics.':'بانتظار ربط مصدر بيانات Google Analytics.',
-      tables:[issues('business')]},
-    {title:'المستخدمون',metrics:pocMetrics,
-      empty:snapshot?.message||'بيانات واتساب غير متاحة حاليًا.',
-      tables:[{rows:sortedUsers(snapshot?.users||[]),markup:pocUsersTable},issues('poc')]}
+  const googleMetrics=[
+    {label:'متوسط مدة التفاعل لكل جلسة',value:google?.state==='connected'?google.averageEngagementSeconds:null,unit:'seconds'},
+    {label:'المشاهدات',value:google?.state==='connected'?google.views:null}
   ];
+  const notices=[];
+  if(snapshot?.state!=='connected')notices.push(snapshot?.message||'بيانات واتساب غير متاحة حاليًا.');
+  if(google?.state!=='connected')notices.push(google?.state==='error'?'تعذر تحديث بيانات Google Analytics.':'بانتظار ربط مصدر بيانات Google Analytics.');
+  const issues=project=>({title:'الأخطاء وأسباب الفشل اليوم',rows:report.issues.filter(issue=>issue.project===project),markup:issuesTable});
+  return [{
+    title:'البيانات',metrics:[...pocMetrics,...googleMetrics],notices,
+    tables:[{rows:sortedUsers(snapshot?.users||[]),markup:pocUsersTable},issues('poc'),issues('business')]
+  }];
 }
 function sectionIntro(section){
-  return `<h2 class="section-title">${section.title}</h2>${
-    section.metrics.length?`<div class="metrics${section.layout==='measurement'?' measurement-metrics':''}">${section.metrics.map(metricCard).join('')}</div>`:`<p class="notice">${esc(section.empty)}</p>`
-  }`;
+  return `<h2 class="section-title">${section.title}</h2><div class="metrics overview-metrics">${section.metrics.map(metricCard).join('')}</div>${section.notices.map(message=>`<p class="notice">${esc(message)}</p>`).join('')}`;
 }
 function sectionTable(table,rows){
   return `${table.title?`<h3>${table.title}</h3>`: ''}${rows.length?table.markup(rows):`<p class="section-note">${table.empty}</p>`}`;
