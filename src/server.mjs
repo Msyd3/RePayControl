@@ -81,16 +81,17 @@ export function createApp({env=process.env,store,fetcher=fetch,journal=null}={})
     await persist('profiles',rows);
     return store.insertProfiles(rows);
   }
+  const adminFrontendOrigins = new Set((env.ADMIN_FRONTEND_ORIGIN || '').split(',').map(origin => origin.trim()).filter(Boolean));
   const handler=async(req,res)=>{
     res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('X-Frame-Options','DENY');res.setHeader('Referrer-Policy','no-referrer');
     res.setHeader('Content-Security-Policy',"default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; frame-src blob:; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
     const url=new URL(req.url,'http://localhost');const origin=req.headers.origin||'';
-    if(env.ADMIN_FRONTEND_ORIGIN&&origin===env.ADMIN_FRONTEND_ORIGIN&&url.pathname.startsWith('/api/')&&!['/api/events','/api/server-events','/api/profiles'].includes(url.pathname)){
+    if(adminFrontendOrigins.has(origin)&&url.pathname.startsWith('/api/')&&!['/api/events','/api/server-events','/api/profiles'].includes(url.pathname)){
       res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin');
       if(req.method==='OPTIONS'){res.writeHead(204,{'Access-Control-Allow-Methods':'GET,POST','Access-Control-Allow-Headers':'Content-Type,Authorization','Access-Control-Max-Age':'600'});return res.end();}
     }
     const remote=req.socket.remoteAddress||'unknown';
-    const sameOrigin=()=>{if(!origin)return false;if(env.ADMIN_FRONTEND_ORIGIN&&origin===env.ADMIN_FRONTEND_ORIGIN)return true;try{return new URL(origin).host===req.headers.host;}catch{return false;}};
+    const sameOrigin=()=>{if(!origin)return false;if(adminFrontendOrigins.has(origin))return true;try{return new URL(origin).host===req.headers.host;}catch{return false;}};
     try{
       if(url.pathname.startsWith('/api/dataroom/'))return await dataRoom(req,res,url,json,sameOrigin);
       if(url.pathname==='/health')return json(res,200,{status:'ok'});
