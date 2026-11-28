@@ -4,7 +4,7 @@ const input=process.env.CONTROL_API_ORIGIN;
 const frontendOnly=process.argv.includes('--frontend-only');
 if(!input&&!frontendOnly)throw Error('CONTROL_API_ORIGIN is required. GitHub Pages needs a separately deployed RePayControl API.');
 const url=input?new URL(input):null;if(url&&(url.protocol!=='https:'||url.username||url.password||url.pathname!=='/'))throw Error('Use the verified HTTPS API origin without a path.');
-if(url&&url.hostname==='control.repay.sa')throw Error('The GitHub Pages hostname cannot also be the Node API origin.');
+if(url&&['control.repay.sa','os.repay.sa'].includes(url.hostname))throw Error('The GitHub Pages hostname cannot also be the Node API origin.');
 await mkdir('dist-pages',{recursive:true});await cp('public','dist-pages',{recursive:true});
 let html=await readFile('public/index.html','utf8');html=html.replace(/(src|href)="\//g,'$1="./');
 const css=(await readFile('public/styles.css','utf8')).replaceAll("url('/","url('./");await writeFile('dist-pages/styles.css',css);
@@ -15,5 +15,5 @@ for(const file of ['dashboard.js','control-entry.js','export-pdf.js','runtime-co
   html=html.replace(new RegExp('"\\./'+file.replaceAll('.','\\.')+'(?:\\?[^"]*)?"'),`"./${file}?v=${version}"`);
 }
 await writeFile('dist-pages/index.html',html);
-await writeFile('dist-pages/.nojekyll','');await writeFile('dist-pages/CNAME','control.repay.sa\n');
+await writeFile('dist-pages/.nojekyll','');await writeFile('dist-pages/CNAME','os.repay.sa\n');
 console.log(url?'Built Pages frontend with external API.':'Built Pages frontend only; login and data wait for an API.');
